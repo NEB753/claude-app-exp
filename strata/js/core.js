@@ -63,27 +63,29 @@ const SCATTER_TYPES={
   bush:{label:'Bushes',max:9000,perKm:1500,unit:3.2,def:{on:true,density:.45,lo:0,hi:.6,slope:40,size:1.8,cluster:.35}},
   grass:{label:'Grass tufts',max:22000,perKm:4200,unit:1.3,def:{on:true,density:.55,lo:0,hi:.5,slope:30,size:2,cluster:.25}},
   boulder:{label:'Boulders',max:4000,perKm:420,unit:4.5,def:{on:true,density:.35,lo:0,hi:1,slope:75,size:1.6,cluster:.2}},
-  structure:{label:'Wooden structures',max:60,unit:8,def:{on:true,count:6,size:1.6}}
+  deadfall:{label:'Fallen trees & stumps',max:3000,perKm:240,unit:9,def:{on:true,density:.35,lo:0,hi:.7,slope:28,size:1.4,cluster:.65}},
+  structure:{label:'Buildings & props',max:60,unit:8,def:{on:true,count:6,size:1.6}}
 };
-const PAINTS={grass:{n:'Grass',c:[78,106,46]},meadow:{n:'Meadow',c:[136,138,68]},sand:{n:'Sand',c:[208,188,138]},dirt:{n:'Dirt',c:[104,80,56]},mud:{n:'Wet mud',c:[70,58,44]},rock:{n:'Rock',c:[118,112,104]},basalt:{n:'Basalt',c:[50,47,46]},snow:{n:'Snow',c:[238,242,246]},erase:{n:'Erase',c:null}};
+const PAINTS={grass:{n:'Grass',c:[78,106,46]},meadow:{n:'Meadow',c:[136,138,68]},sand:{n:'Sand',c:[208,188,138]},dirt:{n:'Dirt',c:[104,80,56]},gravel:{n:'Gravel',c:[150,140,124]},cobble:{n:'Cobblestone',c:[122,114,104]},clay:{n:'Clay',c:[168,104,70]},asphalt:{n:'Asphalt',c:[62,62,64]},mud:{n:'Wet mud',c:[70,58,44]},rock:{n:'Rock',c:[118,112,104]},basalt:{n:'Basalt',c:[50,47,46]},snow:{n:'Snow',c:[238,242,246]},erase:{n:'Erase',c:null}};
 const LOOKS={natural:{n:'Natural',d:'Biome colors, soft daylight'},clay:{n:'Clay',d:'Matte studio clay, reads shape only'},titanium:{n:'Titanium',d:'Brushed metal, mirror reflections'},copper:{n:'Copper',d:'Anodized copper sculpture'},heat:{n:'Elevation',d:'Height-colored map'}};
 
 function autoQuality(){const d=window.devicePixelRatio||1,c=navigator.hardwareConcurrency||4;return d>=3&&c>=4?'pro':d>=2?'balanced':'battery'}
 const scatterDefaults=()=>{const o={};for(const k in SCATTER_TYPES)o[k]={...SCATTER_TYPES[k].def};return o};
 const DEF=()=>({v:2,preset:'Alpine',seed:4127,source:'gen',quality:autoQuality(),
   shape:{cone:0,crater:0,...PRESETS.Alpine.shape},biome:{...PRESETS.Alpine.biome},macro:{x:.6,y:.35},
-  tool:'raise',paint:'grass',stamp:'mountain',plant:'add',brush:{size:240,strength:.5,falloff:.7,mirror:false,hold:false},
+  tool:'raise',paint:'grass',stamp:'mountain',plant:'add',brush:{size:240,strength:.5,falloff:.7,mirror:false,hold:false,shape:'soft',sym:'none',lazy:.25,cat:'shape'},maskMode:'add',
   ero:{drops:60000,power:1,talus:34,passes:30},
   fluid:{rain:.35,flow:.7,carve:.5,evap:.25,springs:[]},
   lava:{rate:.6,cool:.45,fluid:.6,vents:[]},snow:{fall:.5,repose:36,melt:.35,line:.45,addHeight:false},wind:{dir:60,power:.6,supply:.5},
-  sim:{level:'medium',autoBake:true},
-  scatter:{on:true,types:scatterDefaults()},structs:[],
-  view:{vex:1,sunEl:34,sunAz:135,water:true,base:true,wire:false,shadows:true,contours:false,look:'natural',anim:true},
+  sim:{level:'medium',autoBake:true},weather:{power:.6,dir:60},
+  scatter:{on:true,forest:1,types:scatterDefaults()},structs:[],
+  view:{vex:1,sunEl:34,sunAz:135,water:true,base:true,wire:false,shadows:true,contours:false,look:'natural',anim:true,clouds:true,mask:true,tod:.35},
   exp:{target:'blender',fmt:'glb',detail:1,base:true,depth:40,tex:2048,scatter:true,masks:true,pbr:true,tiles:1,atlas:true},
-  photo:{mode:'depth',height:.6,blur:2,invert:false,detail:.2,colors:false,ai:true,pin:false,scatter:true,thin:true},
+  photo:{mode:'auto',height:.6,blur:2,invert:false,detail:.2,colors:false,ai:true,pin:false,scatter:true,thin:true,quick:true},
   graph:null,auto:true,tab:'create',sub:{create:'generate',sim:'water'},mode:'orbit',name:'Untitled terrain'});
+const VARIANTS={conifer:['conifer','pine'],broadleaf:['broadleaf','birch'],deadfall:['log','stump']};
 let S=DEF();
-let N=257,H,M,PC,PW,SM,WM,mNoise,stats={lo:0,hi:1,water:0};
+let N=257,H,M,PC,PW,SM,WM,MK,DF,mNoise,stats={lo:0,hi:1,water:0};
 let prevMaxH=S.shape.maxH;
 
 /* ---------------- fields ---------------- */
@@ -123,7 +125,7 @@ function sampleField(f,R,gx,gy){gx=clamp(gx,0,R-1.001);gy=clamp(gy,0,R-1.001);co
 const hAt=(gx,gy)=>sampleField(H,N,gx,gy);
 const moistAt=(u,v)=>clamp(fbm(mNoise,u*3.2+9,v*3.2-4,4,.5)*.7+.5,0,1);
 function genMoist(){mNoise=makeNoise(S.seed+77);M=new Float32Array(N*N);for(let j=0;j<N;j++)for(let i=0;i<N;i++)M[j*N+i]=moistAt(i/(N-1),j/(N-1))}
-function clearLayers(keepMasks){PC=new Float32Array(N*N*3);PW=new Float32Array(N*N);if(!keepMasks){SM=new Float32Array(N*N).fill(1);WM=new Float32Array(N*N)}}
+function clearLayers(keepMasks){PC=new Float32Array(N*N*3);PW=new Float32Array(N*N);if(!keepMasks){SM=new Float32Array(N*N).fill(1);WM=new Float32Array(N*N);MK=new Float32Array(N*N);DF=new Float32Array(N*N)}if(!MK||MK.length!==N*N)MK=new Float32Array(N*N);if(!DF||DF.length!==N*N)DF=new Float32Array(N*N)}
 function genHeights(){const f=genField(N,S.shape,S.seed);H=new Float32Array(N*N);for(let k=0;k<f.length;k++)H[k]=f[k]*S.shape.maxH;prevMaxH=S.shape.maxH}
 function computeStats(){let lo=1e9,hi=-1e9,w=0;const sea=S.biome.sea*S.shape.maxH;for(let k=0;k<H.length;k++){const h=H[k];if(h<lo)lo=h;if(h>hi)hi=h;if(h<sea)w++}stats={lo,hi,water:w/H.length}}
 const seaLevel=()=>S.biome.sea*S.shape.maxH;
@@ -170,7 +172,7 @@ let toastT=0;function toast(t,kind){const el=$('#toast');el.innerHTML=(kind==='o
 function haptic(ms){try{if(SET.haptics&&navigator.vibrate)navigator.vibrate(ms||8)}catch(e){}}
 function celebrate(){const c=$('#celebrate');if(!c||SET.reduceMotion)return;const cols=['var(--gold)','var(--gold-hi)','var(--accent-hi)','var(--blue)','#fff'];let h='';for(let i=0;i<22;i++){const a=Math.random()*6.283,d=70+Math.random()*90;h+=`<i style="background:${cols[i%5]};--x:${Math.cos(a)*d}px;--y:${Math.sin(a)*d-40}px;--r:${Math.random()*540}deg;animation-delay:${Math.random()*.08}s"></i>`}c.innerHTML=h;c.classList.remove('go');void c.offsetWidth;c.classList.add('go')}
 /* device settings (per browser), separate from the project */
-const SET_DEF={theme:'',units:'m',invertY:false,sens:1,leftHand:false,reduceMotion:false,apiKey:'',model:'claude-opus-5-5',haptics:true,hints:true};
+const SET_DEF={sound:true,volume:.6,theme:'',units:'m',invertY:false,sens:1,leftHand:false,reduceMotion:false,apiKey:'',model:'claude-opus-5-5',haptics:true,hints:true};
 let SET={...SET_DEF};try{SET={...SET_DEF,...JSON.parse(localStorage.getItem('strata.settings')||'{}')}}catch(e){}
 function saveSettings(){try{localStorage.setItem('strata.settings',JSON.stringify(SET))}catch(e){}}
 const fmtLen=m=>SET.units==='ft'?fmt(m*3.28084)+' ft':fmt(m)+' m';

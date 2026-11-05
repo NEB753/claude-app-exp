@@ -54,7 +54,7 @@ const GRAPH_TEMPLATES={
 function mkGraph(nodes,links){const id={};const g={nodes:[],links:[],sel:null,view:{x:20,y:20,z:.82}};let n=1;
   for(const [key,type,x,y,p] of nodes){const nid='n'+(n++);id[key]=nid;g.nodes.push({id:nid,type,x,y,p:{...defParams(type),...p}})}
   for(const [a,b,port] of links)g.links.push({from:id[a],to:id[b],port});return g}
-function defParams(type){const o={},ps=NODE_TYPES[type].params;for(const k in ps)o[k]=ps[k].def;return o}
+function defParams(type){const o={},ps=NODE_TYPES[type].params;for(const k in ps)o[k]=Array.isArray(ps[k].def)?JSON.parse(JSON.stringify(ps[k].def)):ps[k].def;return o}
 
 /* ---------------- evaluation ---------------- */
 const nodeCache=new Map();
@@ -66,7 +66,7 @@ function evalGraph(g,R,onlyOut){
     const key=n.type+JSON.stringify(n.p)+T.ins.map((_,i)=>{const l=g.links.find(l=>l.to===n.id&&l.port===i);return l?sig[l.from]:'-'}).join('|')+R+':'+S.seed;
     sig[n.id]=hashStr(key);const c=nodeCache.get(n.id);
     if(c&&c.sig===sig[n.id]&&c.R===R){res[n.id]=c.data;return c.data}
-    let data;if(T.ins.length&&!ins[0]&&n.type!=='combine')data=new Float32Array(R*R);else data=T.fn(ctx,ins,n.p);
+    let data;if(T.ins.length&&!ins[0]&&n.type!=='combine'&&n.type!=='craters')data=new Float32Array(R*R);else data=T.fn(ctx,ins,n.p);
     nodeCache.set(n.id,{sig:sig[n.id],R,data});res[n.id]=data;return data};
   if(onlyOut)return out?run(out):null;
   for(const n of g.nodes)run(n);return res;
@@ -88,7 +88,7 @@ function renderGraphEditor(host){
   const g=S.graph;host.innerHTML=`<div class="gbar">
     <button class="dd metal press" id="gAdd">${svg('<path d="M12 5v14M5 12h14"/>',2.4)}<span>Add node</span></button>
     <button class="dd metal press" id="gTpl"><span>Templates</span>${svg('<path d="m6 9 6 6 6-6"/>',2.4)}</button>
-    <span style="flex:1"></span>
+    <button class="dd metal press" id="gHelp" aria-label="Node guide"><span>Guide</span></button><span style="flex:1"></span>
     <button class="dd anodized press" id="gBuild"><span>Build</span></button></div>
     <div class="graph" id="graph"><div class="graph-inner" id="gInner"><svg class="wires" id="gWires"></svg></div><div class="ginfo" id="gInfo"></div></div>
     <div id="gInspector"></div>`;
@@ -97,7 +97,7 @@ function renderGraphEditor(host){
   applyGraphView();drawWires();renderInspector();scheduleThumbs(0);bindGraphGestures();
   $('#gAdd').onclick=e=>openMenu(e.currentTarget,addMenuItems(),v=>addNode(v));
   $('#gTpl').onclick=e=>openMenu(e.currentTarget,Object.keys(GRAPH_TEMPLATES).map(k=>({v:k,label:k})),v=>{S.graph=GRAPH_TEMPLATES[v]();nodeCache.clear();renderSheet();buildFromGraph();});
-  $('#gBuild').onclick=()=>buildFromGraph();
+  $('#gBuild').onclick=()=>buildFromGraph();$('#gHelp').onclick=()=>openNodeGuide();
   $('#gInfo').textContent=connectFrom?'Tap an input to connect':'Drag nodes · pinch to zoom · tap a port to wire';
 }
 function addMenuItems(){const cats={};for(const [k,T] of Object.entries(NODE_TYPES)){if(k==='output'&&S.graph.nodes.some(n=>n.type==='output'))continue;(cats[T.cat]=cats[T.cat]||[]).push({v:k,label:T.label,sw:T.color})}
@@ -136,10 +136,10 @@ function renderInspector(){
   if(!n){box.innerHTML=`<p class="hint">Tap a node to edit it. Build sends the Terrain output to the 3D view. ${N>257?'Heavy nodes (erosion) build only when you tap Build at this grid size.':''}</p>
     ${tg('auto','Live build','Rebuild the terrain as you edit')}`;bindToggles(box);return}
   const T=NODE_TYPES[n.type];let h=`<div class="label">${T.cat} · ${T.label}</div>`;
-  for(const [k,d] of Object.entries(T.params)){if(d.options)h+=`<div class="row"><label>${d.label}</label><button class="dd wide metal press" data-nopt="${k}" style="grid-column:span 3"><span>${n.p[k]}</span>${svg('<path d="m6 9 6 6 6-6"/>',2.4)}</button></div>`;
+  for(const [k,d] of Object.entries(T.params)){if(d.curve){h+=`<div class="label">${d.label} · drag points, tap to add, double-tap to remove</div><div class="curvebox" data-curve="${k}"></div>`;continue}if(d.options)h+=`<div class="row"><label>${d.label}</label><button class="dd wide metal press" data-nopt="${k}" style="grid-column:span 3"><span>${n.p[k]}</span>${svg('<path d="m6 9 6 6 6-6"/>',2.4)}</button></div>`;
     else h+=sliderRow('node.'+k,d.label,d.min,d.max,d.step,n.p[k],d.def)}
   h+=`<div class="btns"><button class="btn plain press" id="nDup">Duplicate</button>${n.type!=='output'?'<button class="btn plain press" id="nDel" style="color:var(--bad)">Delete</button>':''}</div>`;
-  box.innerHTML=h;
+  box.innerHTML=h;$$('[data-curve]',box).forEach(el=>{const k=el.dataset.curve;if(!Array.isArray(n.p[k]))n.p[k]=JSON.parse(JSON.stringify(T.params[k].def));curveEditor(el,n.p[k],()=>{scheduleThumbs(60);scheduleAuto();saveSoon()})});
   bindSliders(box,(k,v)=>{n.p[k.slice(5)]=v;scheduleThumbs(60);scheduleAuto();saveSoon()},k=>NODE_TYPES[n.type].params[k.slice(5)].def);
   $$('[data-nopt]',box).forEach(b=>b.onclick=()=>{const k=b.dataset.nopt;openMenu(b,T.params[k].options.map(o=>({v:o,label:o})),v=>{n.p[k]=v;renderInspector();scheduleThumbs(0);scheduleAuto()},n.p[k])});
   const dup=$('#nDup');if(dup)dup.onclick=()=>{if(n.type==='output')return toast('There is only one output');const c={id:'n'+Date.now().toString(36),type:n.type,x:n.x+30,y:n.y+150,p:{...n.p}};S.graph.nodes.push(c);S.graph.sel=c.id;GE.inner.appendChild(nodeEl(c));refreshGraph()};

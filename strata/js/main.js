@@ -9,7 +9,7 @@ function regenSoon(commit){
 }
 function recolorSoon(){if(recolorQ)return;recolorQ=true;requestAnimationFrame(()=>{recolorQ=false;updateAll();renderFacts();saveSoon()})}
 function applyPreset(name){const p=PRESETS[name];if(!p)return false;pushUndo();S.preset=name;S.shape={cone:0,crater:0,...p.shape};S.biome={...p.biome};S.macro={x:clamp(p.shape.ridges/.9,0,1),y:clamp((p.shape.warp-.12)/.55,0,1)};regenerate(false);frame(true);renderSheet();return true}
-function setRes(r){if(r===N)return;pushUndo();H=resample(H,N,r);PC=resample(PC,N,r,3);PW=resample(PW,N,r);SM=resample(SM,N,r);WM=resample(WM,N,r);N=r;genMoist();buildGeometry();terrain.material=MATS[S.view.look]||MATS.natural;fluidSync();updateAll()}
+function setRes(r){if(r===N)return;pushUndo();H=resample(H,N,r);PC=resample(PC,N,r,3);PW=resample(PW,N,r);SM=resample(SM,N,r);WM=resample(WM,N,r);MK=resample(MK,N,r);DF=resample(DF,N,r);N=r;genMoist();buildGeometry();terrain.material=MATS[S.view.look]||MATS.natural;fluidSync();updateAll()}
 async function setQuality(q){
   if(!QUALITY[q]||q===S.quality)return;S.quality=q;const Q=QUALITY[q];
   if(SR.running)simStop(false);FL.R=0;LV.R=0;SN.R=0;WD.R=0;for(const k in OV)hideOverlay(k);
@@ -39,18 +39,21 @@ function onParam(k,v,commit){
 const ptrs=new Map();let gesture=null,hoverP=null,lpT=0,lastTap={t:0,x:0,y:0},sculptHideT=0;
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
 canvas.addEventListener('pointerdown',e=>{
+  if(FP.on){try{canvas.setPointerCapture(e.pointerId)}catch(_){}fpLookStart(e);return}
   closePanel(true);closeQuick();camAnim=null;try{canvas.setPointerCapture(e.pointerId)}catch(_){}ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,t0:performance.now()});touch();clearTimeout(lpT);
   if(ptrs.size>=2){if(stroke){if(performance.now()-stroke.t0<260&&undoS.length){restore(undoS.pop());syncUndo()}endStroke(true)}startNav();return}
   const sculpt=S.mode==='sculpt'&&(e.pointerType!=='mouse'||e.button===0)&&!e.altKey;
   if(sculpt){const p=pick(e.clientX,e.clientY);if(p){
     if(S.tool==='spring'){addSpring(p);return}
     if(S.tool==='vent'){addVent(p);return}
-    if(S.tool==='stamp'){pushUndo();stroke={t0:performance.now(),noise:makeNoise(1),rng:Math.random};stampAt(p);stroke=null;afterEdit();placeRing(p);haptic(14);return}
+    if(S.tool==='stamp'){pushUndo();stroke={t0:performance.now(),noise:makeNoise(1),rng:Math.random};stampAt(p);stroke=null;afterEdit();placeRing(p);haptic(14);emitDust(p,40);sfx('thud');return}
     beginStroke(p,e);return}}
   gesture={kind:(e.button===1||e.shiftKey||(e.pointerType==='mouse'&&e.button===2&&e.ctrlKey))?'pan':'orbit',x:e.clientX,y:e.clientY};
+  clearTimeout(sculptHideT);sculptHideT=setTimeout(()=>{if(gesture&&ptrs.size&&!stroke){const pt=[...ptrs.values()][0];if(pt&&Math.hypot(pt.x-pt.x0,pt.y-pt.y0)>12)document.body.classList.add('sculpting')}},300);
   if(e.pointerType!=='mouse'||e.button===0)lpT=setTimeout(()=>{const pt=ptrs.get(e.pointerId);if(pt&&ptrs.size===1&&Math.hypot(pt.x-pt.x0,pt.y-pt.y0)<9){gesture=null;openQuick(pt.x,pt.y)}},480);
 });
 canvas.addEventListener('pointermove',e=>{
+  if(FP.on){fpLookMove(e);return}
   const pt=ptrs.get(e.pointerId);
   if(!pt){if(S.mode==='sculpt'&&e.pointerType==='mouse'){hoverP=pick(e.clientX,e.clientY);placeRing(hoverP,['spring','vent'].includes(S.tool)?S.shape.world*.01:null);showReadout(hoverP)}return}
   const dx=e.clientX-pt.x,dy=e.clientY-pt.y;pt.x=e.clientX;pt.y=e.clientY;if(Math.hypot(pt.x-pt.x0,pt.y-pt.y0)>9)clearTimeout(lpT);
@@ -59,7 +62,7 @@ canvas.addEventListener('pointermove',e=>{
   if(!gesture)return;const k=SET.sens||1;
   if(gesture.kind==='orbit'){cam.theta-=dx*.006*k;cam.phi-=dy*.005*k*(SET.invertY?-1:1);placeCamera()}else panBy(dx,dy);
 });
-function endPtr(e){clearTimeout(lpT);const pt=ptrs.get(e.pointerId);ptrs.delete(e.pointerId);
+function endPtr(e){if(FP.on){fpLookEnd();return}clearTimeout(lpT);const pt=ptrs.get(e.pointerId);ptrs.delete(e.pointerId);if(!ptrs.size&&!stroke){clearTimeout(sculptHideT);document.body.classList.remove('sculpting')}
   if(stroke&&ptrs.size===0)endStroke();
   if(pt&&!stroke&&gesture&&gesture.kind==='orbit'&&ptrs.size===0&&e.type==='pointerup'){const moved=Math.hypot(pt.x-pt.x0,pt.y-pt.y0),dt=performance.now()-pt.t0;
     if(moved<10&&dt<300){const now=performance.now();if(now-lastTap.t<320&&Math.hypot(pt.x-lastTap.x,pt.y-lastTap.y)<34){lastTap.t=0;const p=pick(pt.x,pt.y);if(p){focusAt(p);haptic(10)}}else lastTap={t:now,x:pt.x,y:pt.y}}}
@@ -76,17 +79,18 @@ function navMulti(){
 }
 function panBy(dx,dy){const k=cam.r*.0016*(SET.sens||1),s=Math.sin(cam.theta),c=Math.cos(cam.theta);cam.target.x-=c*dx*k+s*dy*k;cam.target.z-=-s*dx*k+c*dy*k;placeCamera()}
 function beginStroke(p,e){
-  pushUndo();stroke={t0:performance.now(),last:performance.now(),cx:e.clientX,cy:e.clientY,flatH:hAt(p.gx,p.gy),noise:makeNoise((Math.random()*1e9)|0),rng:mulberry32((Math.random()*1e9)|0),lp:p,pressure:e.pointerType==='pen'?e.pressure:0};
-  applyBrush(p,1);placeRing(p);showReadout(p);
+  pushUndo();stroke={t0:performance.now(),last:performance.now(),cx:e.clientX,cy:e.clientY,flatH:hAt(p.gx,p.gy),noise:makeNoise((Math.random()*1e9)|0),rng:mulberry32((Math.random()*1e9)|0),lp:p,tp:{x:p.x,z:p.z},dir:[0,0],sprayS:(Math.random()*1e6)|0,pressure:e.pointerType==='pen'?e.pressure:0};
+  applyBrush(p,1);emitDust(p,10,dustColor());loopOn('sculpt',.3);placeRing(p);showReadout(p);
   clearTimeout(sculptHideT);sculptHideT=setTimeout(()=>{if(stroke)document.body.classList.add('sculpting')},260);
 }
 function afterEdit(){if(baseDirty)rebuildBase();computeStats();updateWater();fluidSync();scatterSoon(160);saveSoon();renderFacts()}
-function endStroke(cancel){stroke=null;clearTimeout(sculptHideT);document.body.classList.remove('sculpting');afterEdit();if(!hoverP){placeRing(null);$('#readout').hidden=true}}
+function endStroke(cancel){stroke=null;loopOff('sculpt');clearTimeout(sculptHideT);document.body.classList.remove('sculpting');afterEdit();if(!hoverP){placeRing(null);$('#readout').hidden=true}}
 function strokeTick(now){
   if(!stroke)return;const dt=Math.min(.05,(now-stroke.last)/1000);stroke.last=now;
-  const p=pick(stroke.cx,stroke.cy);if(!p)return;const W=S.shape.world,spacing=Math.max(S.brush.size*.22,W/(N-1)*.8),lp=stroke.lp,dist=Math.hypot(p.x-lp.x,p.z-lp.z);
-  if(dist>=spacing){const n=Math.min(40,Math.floor(dist/spacing));for(let i=1;i<=n;i++){const t=i*spacing/dist,x=lerp(lp.x,p.x,t),z=lerp(lp.z,p.z,t);const ip={x,z,gx:(x/W+.5)*(N-1),gy:(z/W+.5)*(N-1)};applyBrush(ip,1);stroke.lp=ip}}
-  else if(S.brush.hold&&['raise','lower','smooth','roughen','paint','plant','erode','terrace','flatten'].includes(S.tool))applyBrush(p,dt*5);
+  const raw=pick(stroke.cx,stroke.cy);if(!raw)return;const W=S.shape.world,lz=S.brush.lazy||0,tp=stroke.tp;tp.x=lerp(tp.x,raw.x,1-lz*.9);tp.z=lerp(tp.z,raw.z,1-lz*.9);
+  const p={x:tp.x,z:tp.z,gx:(tp.x/W+.5)*(N-1),gy:(tp.z/W+.5)*(N-1)},spacing=Math.max(S.brush.size*.22,W/(N-1)*.8),lp=stroke.lp,dist=Math.hypot(p.x-lp.x,p.z-lp.z);
+  if(dist>=spacing){const n=Math.min(40,Math.floor(dist/spacing));stroke.dir=[(p.x-lp.x)/dist,(p.z-lp.z)/dist];for(let i=1;i<=n;i++){const t=i*spacing/dist,x=lerp(lp.x,p.x,t),z=lerp(lp.z,p.z,t);const ip={x,z,gx:(x/W+.5)*(N-1),gy:(z/W+.5)*(N-1)};applyBrush(ip,1);stroke.lp=ip}emitDust(p,Math.min(14,3+n*3),dustColor());loopOn('sculpt',clamp(.2+n*.15,.2,1));haptic(4)}
+  else{loopOn('sculpt',.06);}if(dist<spacing&&S.brush.hold&&['raise','lower','smooth','roughen','paint','plant','erode','terrace','flatten'].includes(S.tool))applyBrush(p,dt*5);
   placeRing(p);showReadout(p);
 }
 function showReadout(p){const el=$('#readout');if(!p||SR.running){el.hidden=true;return}const h=hAt(p.gx,p.gy),sl=slopeDeg(p.gx,p.gy);el.textContent=`${fmtLen(h)} · ${Math.round(sl)}° · ⌀ ${fmtLen(S.brush.size*2)}`;el.hidden=false}
@@ -94,7 +98,7 @@ function showReadout(p){const el=$('#readout');if(!p||SR.running){el.hidden=true
 /* ---------------- quick actions (long-press the terrain) ---------------- */
 function openQuick(x,y){
   const p=pick(x,y);if(!p)return;haptic(16);const q=$('#quick');
-  const acts=[['Focus',IC.focus,()=>focusAt(p)],['Spring',IC.spring,()=>{addSpring(p);if(S.tab!=='simulate')switchTab('simulate','water')}],['Lava vent',IC.vent,()=>{addVent(p);if(S.tab!=='simulate')switchTab('simulate','lava')}],
+  const acts=[['Focus',IC.focus,()=>focusAt(p)],['Walk here','<circle cx="13" cy="4" r="2"/><path d="M10 21l2-6 3 3v4M8 12l3-4 4 2 2 3"/>',()=>fpEnter(p)],['Rockslide','<path d="M3 20l6-10 4 5 3-3 5 8z"/><circle cx="17" cy="6" r="1.5"/>',()=>{EV.at={u:p.u,v:p.v};switchTab('simulate','slide');simStart('slide')}],['Spring',IC.spring,()=>{addSpring(p);if(S.tab!=='simulate')switchTab('simulate','water')}],['Lava vent',IC.vent,()=>{addVent(p);if(S.tab!=='simulate')switchTab('simulate','lava')}],
     [STAMPS[S.stamp],IC.stamp,()=>{pushUndo();stroke={rng:Math.random};stampAt(p);stroke=null;afterEdit()}],['Cabin',IC.cabin,()=>{if(!S.structs.length)S.structs=structList.slice();S.structs.push({u:p.u,v:p.v,type:'cabin',rot:Math.random()*6.28});S.scatter.on=true;S.scatter.types.structure.on=true;buildScatter();saveSoon();toast('Cabin placed','ok')}],
     ['Info',IC.info,()=>toast(`${fmtLen(hAt(p.gx,p.gy))} high · ${Math.round(slopeDeg(p.gx,p.gy))}° slope${hAt(p.gx,p.gy)<seaLevel()?' · under water':''}`)]];
   const R=86,n=acts.length,a0=-Math.PI*.92,a1=-Math.PI*.08;q.style.left=x+'px';q.style.top=y+'px';
@@ -120,9 +124,12 @@ function saveSoon(){clearTimeout(saveT);saveT=setTimeout(()=>{saveProject(false)
 document.addEventListener('visibilitychange',()=>{if(document.hidden)saveProject(true).catch(()=>{});else touch()});
 
 /* ---------------- loop & boot ---------------- */
-let lastAnim=0;
+let lastAnim=0,lastT=0,lastCloud=0;
+function dustColor(){const t=S.tool;if(t==='paint'){const c=PAINTS[S.paint].c;return c?c.map(v=>v/255):[.9,.9,.9]}if(t==='mask')return[.95,.7,.2];if(t==='plant')return[.35,.6,.3];if(t==='erode')return[.55,.65,.75];return null}
 function loop(now){
-  camTick(now);morphTick(now);strokeTick(now);simTick(now);
+  const dt=Math.min(.05,(now-(lastT||now))/1000);lastT=now;
+  camTick(now);morphTick(now);strokeTick(now);simTick(now);fpTick(dt);dustTick(dt);CU.uClouds.value=S.view.clouds?1:0;
+  if(S.view.clouds&&now-lastInteract<15000&&!document.hidden&&now-lastCloud>50){lastCloud=now;CU.uTime.value=now/1000;CU.uWorld.value=S.shape.world;dirty=true}
   const idle=now-lastInteract>15000;
   if(S.view.anim&&waterMesh&&waterMesh.visible&&!idle&&!document.hidden&&now-lastAnim>33){lastAnim=now;waterNTex.offset.x=(now*.000012)%1;waterNTex.offset.y=(now*.000007)%1;dirty=true}
   if(dirty){dirty=false;renderer.render(scene,camera)}

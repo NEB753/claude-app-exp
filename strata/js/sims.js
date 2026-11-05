@@ -76,9 +76,9 @@ function windInit(){const R=QUALITY[S.quality].sim;WD.R=R;WD.b=resample(H,N,R);W
 function windStep(){
   const R=WD.R,b=WD.b,P=S.wind,a=P.dir*Math.PI/180,dx=Math.cos(a),dy=Math.sin(a),hop=2+Math.round(P.power*4),l=S.shape.world/(R-1),q=.35*P.supply*Math.max(.3,S.shape.maxH/120),tanS=Math.tan(15*Math.PI/180)*l,sea=seaLevel();
   const rnd=Math.random,picks=Math.round(R*R*.04);
-  const shelter=(i,j)=>{const h=b[j*R+i];for(let s=1;s<=10;s++){const ii=Math.round(i-dx*s),jj=Math.round(j-dy*s);if(ii<0||jj<0||ii>=R||jj>=R)return false;if(b[jj*R+ii]-h>tanS*s)return true}return false};
+  const shelter=(i,j)=>{const h=b[j*R+i];for(let s=1;s<=10;s++){const ii=(Math.round(i-dx*s)%R+R)%R,jj=(Math.round(j-dy*s)%R+R)%R;if(b[jj*R+ii]-h>tanS*s)return true}return false};
   for(let p=0;p<picks;p++){const i=1+(rnd()*(R-2))|0,j=1+(rnd()*(R-2))|0,k=j*R+i;if(b[k]<sea+.5||b[k]<=q||shelter(i,j))continue;b[k]-=q;
-    let x=i,y=j,land=false;for(let h=0;h<6;h++){x+=dx*hop;y+=dy*hop;const ii=Math.round(x),jj=Math.round(y);if(ii<0||jj<0||ii>=R||jj>=R){land=true;break}
+    let x=i,y=j,land=false;for(let h=0;h<6;h++){x+=dx*hop;y+=dy*hop;x=(x+R)%R;y=(y+R)%R;const ii=Math.round(x)%R,jj=Math.round(y)%R;
       if(shelter(ii,jj)||rnd()<.45||b[jj*R+ii]<sea){b[jj*R+ii]+=q;land=true;break}}
     if(!land){const ii=clamp(Math.round(x),0,R-1),jj=clamp(Math.round(y),0,R-1);b[jj*R+ii]+=q}}
   thermalPass(b,R,Math.tan(33*Math.PI/180)*l);WD.steps++;
@@ -105,17 +105,17 @@ function simTarget(kind){const k=SIM_LEVELS[S.sim.level].k;if(kind==='erode')ret
 function simStart(kind){
   const d=SIMDEF[kind];const why=d.ready&&d.ready();if(why){toast(why,'warn');return}
   if(SR.running&&SR.kind!==kind)simStop(true);
-  pushUndo();d.init();Object.assign(SR,{kind,running:true,steps:0,target:simTarget(kind),lastSync:performance.now(),lastVis:0});
+  SR.job=job(d.title,['Simulating','Baking']);pushUndo();d.init();simSound(kind);Object.assign(SR,{kind,running:true,steps:0,target:simTarget(kind),lastSync:performance.now(),lastVis:0});
   const ring=$('#simRing');ring.classList.remove('done');ring.classList.toggle('spin',SR.target===Infinity);$('#simTitle').textContent=d.title;$('#simStop').textContent='Done';$('#simChip').hidden=false;
   if(S.tab==='simulate')renderSheet();touch();haptic(10);
 }
 function simStop(bake){
-  if(!SR.kind)return;const d=SIMDEF[SR.kind];SR.running=false;
+  if(!SR.kind)return;const d=SIMDEF[SR.kind];SR.running=false;loopsOff();if(d.end)d.end();
   if(bake){busy(true,'Baking '+d.title.toLowerCase()+'…',.6);try{d.bake()}finally{busy(false)}simDoneFx(d.title+' baked into the terrain')}
-  else{$('#simChip').hidden=true;toast(d.title+' paused')}
+  else{$('#simChip').hidden=true;toast(d.title+' paused');if(SR.job){SR.job.done('Paused');SR.job=null}}
   if(S.tab==='simulate')renderSheet();
 }
-function simDoneFx(msg){const ring=$('#simRing');ring.classList.remove('spin');ring.querySelector('.fg').style.strokeDashoffset=0;ring.classList.add('done');$('#simText').textContent='Baked';$('#simStop').textContent='OK';
+function simDoneFx(msg){sfx('chime');if(SR.job){SR.job.done('Baked into the land');SR.job=null}const ring=$('#simRing');ring.classList.remove('spin');ring.querySelector('.fg').style.strokeDashoffset=0;ring.classList.add('done');$('#simText').textContent='Baked';$('#simStop').textContent='OK';
   celebrate();toast(msg,'ok');setTimeout(()=>{if(!SR.running)$('#simChip').hidden=true},1800)}
 function simTick(now){
   if(!SR.running)return;const d=SIMDEF[SR.kind],t0=performance.now();let n=0;
@@ -125,8 +125,41 @@ function simTick(now){
   const p=SR.target===Infinity?0:SR.steps/SR.target;$('#simRing .fg').style.strokeDashoffset=94.25*(1-(SR.target===Infinity?.25:p));
   $('#simText').textContent=(SR.target===Infinity?'':Math.round(p*100)+'% · ')+d.info();
   const inf=$('#simInfo');if(inf&&S.sub.sim===SR.kind)inf.textContent=d.info();
+  if(SR.job&&SR.target!==Infinity)SR.job.prog(p);
   const card=$('#simProg');if(card)card.style.strokeDashoffset=207.3*(1-(SR.target===Infinity?.25:p));
   touch();
-  if(SR.steps>=SR.target){SR.running=false;if(S.sim.autoBake){d.bake();simDoneFx(d.title+' finished and baked')}else{if(d.sync)d.sync();toast(d.title+' finished · tap Bake to keep it');$('#simChip').hidden=true}if(S.tab==='simulate')renderSheet()}
+  if(SR.steps>=SR.target){SR.running=false;loopsOff();if(d.end)d.end();if(S.sim.autoBake){d.bake();simDoneFx(d.title+' finished and baked')}else{if(d.sync)d.sync();toast(d.title+' finished · tap Bake to keep it');$('#simChip').hidden=true}if(S.tab==='simulate')renderSheet()}
 }
 $('#simStop').onclick=()=>{if(SR.running)simStop(true);else $('#simChip').hidden=true};
+
+/* ---------------- weather & events ---------------- */
+const EV={};
+function simSound(k){loopsOff();const m={water:['rain'],storm:['rain','wind'],lava:['lava'],snow:['wind'],blizzard:['wind'],wind:['wind'],tornado:['wind'],erode:['erode'],quake:['quake'],slide:['quake','erode']}[k]||[];m.forEach((n,i)=>loopOn(n,k==='snow'?.4:k==='slide'&&i===0?.5:1))}
+function regionLoop(u,v,r,fn){const cx=u*(N-1),cy=v*(N-1),R=r*(N-1),i0=Math.max(0,Math.floor(cx-R)),i1=Math.min(N-1,Math.ceil(cx+R)),j0=Math.max(0,Math.floor(cy-R)),j1=Math.min(N-1,Math.ceil(cy+R));
+  for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const d=Math.hypot(i-cx,j-cy)/R;if(d<1)fn(j*N+i,d,i,j)}updateRegion(i0-1,j0-1,i1+1,j1+1)}
+// earthquake: a fault scarp grows in increments, the camera shakes, slopes along the fault collapse
+Object.assign(SIMDEF,{
+ quake:{title:'Earthquake',init(){const r=Math.random,a=r()*Math.PI;EV.q={nx:Math.cos(a),ny:Math.sin(a),cx:.35+r()*.3,cy:.35+r()*.3,th:S.shape.maxH*.07*(.4+S.weather.power),done:0,sx:r()<.5?1:-1}},
+  step(){const q=EV.q;q.done++;if(q.done%2)return;const f0=smooth(0,1,(q.done-2)/30),f1=smooth(0,1,q.done/30),dd=(f1-f0)*q.th;if(dd<=0)return;
+    for(let j=0;j<N;j++)for(let i=0;i<N;i++){const u=i/(N-1),v=j/(N-1),d=(u-q.cx)*q.nx+(v-q.cy)*q.ny,k=j*N+i;H[k]=Math.max(0,H[k]+dd*smooth(-.006,.006,d*q.sx)*Math.exp(-Math.abs(d)*2.2)*(1-MK[k]))}
+    if(q.done%6===0){const tal=Math.tan(33*Math.PI/180)*S.shape.world/(N-1);thermalPass(H,N,tal)}},
+  end(){if(!FP.on)placeCamera()},vis(){const a=SR.running?(1-SR.steps/SR.target)*S.shape.world*.0025*(.5+S.weather.power):0;if(!FP.on&&a>0){placeCamera();camera.position.x+=(Math.random()-.5)*a;camera.position.y+=(Math.random()-.5)*a;dirty=true}},
+  sync:refreshTerrain,bake(){updateAll();scatterSoon(100);saveSoon()},base:32,info:()=>`Magnitude ${(5.2+S.weather.power*3).toFixed(1)}`},
+ tornado:{title:'Tornado',init(){const r=Math.random,a=(S.weather.dir+(r()-.5)*40)*Math.PI/180,dx=Math.cos(a),dy=Math.sin(a);EV.t={x0:.5-dx*.55,y0:.5-dy*.55,dx,dy,w:.025+.035*S.weather.power,ph:r()*9};
+    if(!EV.funnel){const g=new THREE.CylinderGeometry(1,.12,1,24,8,true).translate(0,.5,0);EV.funnel=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0x9aa3a6,transparent:true,opacity:.42,depthWrite:false,side:THREE.DoubleSide}));EV.funnel.renderOrder=5;scene.add(EV.funnel)}EV.funnel.visible=true},
+  pos(){const t=SR.steps/SR.target,e=EV.t,w=Math.sin(t*9+e.ph)*.06;return{u:clamp(e.x0+e.dx*t*1.1-e.dy*w,0,1),v:clamp(e.y0+e.dy*t*1.1+e.dx*w,0,1)}},
+  step(){const p=SIMDEF.tornado.pos(),e=EV.t,dirt=PAINTS.dirt.c,pw=S.weather.power;regionLoop(p.u,p.v,e.w,(k,d)=>{const f=1-d*d;DF[k]=Math.max(DF[k],f*.9);SM[k]*=1-f*.5;H[k]=Math.max(0,H[k]-f*.25*pw);if(f>.35){PC[k*3]=lerp(PW[k]>0?PC[k*3]:dirt[0],dirt[0],.5);PC[k*3+1]=lerp(PW[k]>0?PC[k*3+1]:dirt[1],dirt[1],.5);PC[k*3+2]=lerp(PW[k]>0?PC[k*3+2]:dirt[2],dirt[2],.5);PW[k]=Math.max(PW[k],f*.28)}})},
+  vis(){const p=SIMDEF.tornado.pos(),W=S.shape.world,h=hAt(p.u*(N-1),p.v*(N-1))*S.view.vex,R=EV.t.w*W;EV.funnel.position.set((p.u-.5)*W,h,(p.v-.5)*W);EV.funnel.scale.set(R*1.3,S.shape.maxH*1.6+R*4,R*1.3);EV.funnel.rotation.y+=.4;emitDust({x:(p.u-.5)*W,z:(p.v-.5)*W,gx:p.u*(N-1),gy:p.v*(N-1)},6,[.5,.46,.4]);dirty=true},
+  end(){if(EV.funnel)EV.funnel.visible=false},sync:null,bake(){if(EV.funnel)EV.funnel.visible=false;updateAll();buildScatter();saveSoon()},base:160,info:()=>'EF'+Math.round(1+S.weather.power*4)+' tornado'},
+ slide:{title:'Rockslide',init(){let best=-1,bk=null;const rng=Math.random;for(let a=0;a<400;a++){const u=.1+rng()*.8,v=.1+rng()*.8,s=slopeDeg(u*(N-1),v*(N-1));if(s>best){best=s;bk={u,v}}}EV.s={...(EV.at||bk),r:.05+.05*S.weather.power};EV.at=null;EV.s0=H.slice()},
+  step(){const e=EV.s,tal=Math.tan(22*Math.PI/180)*S.shape.world/(N-1),cx=e.u*(N-1),cy=e.v*(N-1),R=e.r*(N-1)*1.6,i0=Math.max(1,Math.floor(cx-R)),i1=Math.min(N-2,Math.ceil(cx+R)),j0=Math.max(1,Math.floor(cy-R)),j1=Math.min(N-2,Math.ceil(cy+R)),nb=[-1,1,-N,N];
+    for(let pass=0;pass<3;pass++)for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const k=j*N+i,w=1-smooth(.6,1,Math.hypot(i-cx,j-cy)/R);if(w<=0||MK[k]>.5)continue;let mx=0,lo=-1;for(let q=0;q<4;q++){const d=H[k]-H[k+nb[q]];if(d>mx){mx=d;lo=k+nb[q]}}if(mx>tal){const mv=(mx-tal)*.35*w;H[k]-=mv;H[lo]+=mv}}
+    updateRegion(i0-1,j0-1,i1+1,j1+1);if(SR.steps%3===0)emitDust({x:(e.u-.5)*S.shape.world,z:(e.v-.5)*S.shape.world,gx:cx,gy:cy},10,[.55,.53,.5])},
+  sync:null,bake(){const e=EV.s,rk=PAINTS.rock.c;regionLoop(e.u,e.v,e.r*2,(k)=>{const g=H[k]-EV.s0[k];if(g>.3){const w=smooth(.3,4,g);PC[k*3]=rk[0];PC[k*3+1]=rk[1];PC[k*3+2]=rk[2];PW[k]=Math.max(PW[k],w*.8);SM[k]=Math.min(SM[k],1-w*.7)}if(g<-.3)DF[k]=Math.max(DF[k],.4)});updateAll();scatterSoon(100);saveSoon()},base:40,info:()=>'Cliff collapse'},
+ storm:{title:'Hurricane',init(){EV.st={rain:S.fluid.rain,carve:S.fluid.carve};S.fluid.rain=.95;S.fluid.carve=.7;if(!FL.R)fluidInit();else fluidSync();S.view.water=true},
+  step(){fluidStep();if(SR.steps%12===0){const r=Math.random,u=r(),v=r(),h=hAt(u*(N-1),v*(N-1)),sea=seaLevel(),exposed=h<sea+S.shape.maxH*.18||slopeDeg(u*(N-1),v*(N-1))<8;if(exposed)regionLoop(u,v,.03+.03*S.weather.power,(k,d)=>{DF[k]=Math.max(DF[k],(1-d)*.7)})}},
+  vis:()=>updateWater(true),sync(){if(fluidWriteBack())refreshTerrain()},end(){if(EV.st){S.fluid.rain=EV.st.rain;S.fluid.carve=EV.st.carve}},bake(){fluidBake();if(EV.st){S.fluid.rain=EV.st.rain;S.fluid.carve=EV.st.carve}buildScatter()},base:520,info:()=>'Category '+Math.round(1+S.weather.power*4)+' · '+fmtTime(FL.time)},
+ blizzard:{title:'Blizzard',init(){snowInit();EV.bz=S.snow.fall},step(){S.snow.fall=1;snowStep();S.snow.fall=EV.bz;const R=SN.R,D=SN.D,a=S.weather.dir*Math.PI/180,dx=Math.round(Math.cos(a)),dy=Math.round(Math.sin(a)),f=.08*(.4+S.weather.power);
+    for(let j=1;j<R-1;j++)for(let i=1;i<R-1;i++){const k=j*R+i,n=k+dy*R+dx;if(SN.b[n]+D[n]<SN.b[k]+D[k]+2){const m=D[k]*f;D[k]-=m;D[n]+=m}}},
+  vis:snowVis,sync:null,end(){S.snow.fall=EV.bz??S.snow.fall},bake:snowBake,clear:snowClear,base:360,info:()=>`${SN.steps} gusts of snow`}
+});

@@ -10,8 +10,15 @@ const TOOLS=[
   ['erode','Erode','<path d="M12 3c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11z"/><path d="M10 15l2 2 2-3"/>'],
   ['stamp','Stamp','<path d="M8 4h8l-2 6h4v4H6v-4h4z"/><path d="M5 20h14"/>'],
   ['paint','Paint','<path d="M19 3l-9 9"/><path d="M10 12c-3 0-5 2-5 5 0 2-2 3-2 3s5 1 7-1 2-4 0-7z"/>'],
-  ['plant','Plant','<path d="M12 21v-8"/><path d="M12 13c0-4 3-7 7-7 0 4-3 7-7 7zM12 15c0-3-2-5-6-5 0 3 2 5 6 5z"/>']
+  ['plant','Plant','<path d="M12 21v-8"/><path d="M12 13c0-4 3-7 7-7 0 4-3 7-7 7zM12 15c0-3-2-5-6-5 0 3 2 5 6 5z"/>'],
+  ['pinch','Pinch','<path d="M4 18l8-12 8 12"/><path d="M9 18l3-5 3 5"/>'],
+  ['crease','Crease','<path d="M3 6l9 12 9-12"/>'],
+  ['smudge','Smudge','<path d="M4 14c3-3 6-3 9 0s5 3 7 1"/><path d="M16 7l4 4"/>'],
+  ['mask','Mask','<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M4 14l10-10M8 20l12-12"/>']
 ];
+const TOOL_CATS={shape:{n:'Shape',t:['raise','lower','smooth','flatten','pinch','crease','smudge','terrace']},detail:{n:'Detail',t:['roughen','erode','stamp']},surface:{n:'Surface',t:['paint','plant','mask']}};
+const BRUSH_SHAPES={soft:'Soft',sharp:'Sharp',plateau:'Plateau',spray:'Spray'};
+const SYMS={none:'Off',x:'Mirror ↔',z:'Mirror ↕',r3:'Radial 3',r4:'Radial 4',r6:'Radial 6'};
 const STAMPS={mountain:'Mountain',volcano:'Volcano',crater:'Crater',mesa:'Mesa',ridge:'Ridge',dune:'Dune',basin:'Lake basin'};
 let stroke=null;
 function stampProfile(type,d,ax,ay,rn){
@@ -30,11 +37,12 @@ function brushAt(cx,cy,amt,p){
   const i0=Math.max(0,Math.floor(cx-rad)),i1=Math.min(N-1,Math.ceil(cx+rad)),j0=Math.max(0,Math.floor(cy-rad)),j1=Math.min(N-1,Math.ceil(cy+rad));
   if(i0>i1||j0>j1)return;
   if(tool==='erode'){erodeDroplets(H,N,Math.round(40*st+6),1.2,stroke.rng,{x:cx,y:cy,r:rad},S.shape.maxH);updateRegion(i0-2,j0-2,i1+2,j1+2);return}
-  let src=null,sw=0;if(tool==='smooth'){sw=i1-i0+5;src=new Float32Array(sw*(j1-j0+5));for(let j=j0-2;j<=j1+2;j++)for(let i=i0-2;i<=i1+2;i++)src[(j-j0+2)*sw+(i-i0+2)]=H[clamp(j,0,N-1)*N+clamp(i,0,N-1)]}
+  let src=null,sw=0;if(tool==='smooth'||tool==='pinch'||tool==='smudge'){sw=i1-i0+5;src=new Float32Array(sw*(j1-j0+5));for(let j=j0-2;j<=j1+2;j++)for(let i=i0-2;i<=i1+2;i++)src[(j-j0+2)*sw+(i-i0+2)]=H[clamp(j,0,N-1)*N+clamp(i,0,N-1)]}
   const rn=stroke&&stroke.noise,pc=tool==='paint'&&PAINTS[S.paint].c,step=S.shape.maxH/10;
   for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){
     const d=Math.hypot(i-cx,j-cy)/rad;if(d>=1)continue;
-    const w=fall<=.01?1:1-smooth(1-fall,1,d),k=j*N+i,s=w*st;
+    const sh=S.brush.shape;let w=sh==='sharp'?Math.pow(1-d,2.4):sh==='plateau'?1-smooth(.72,1,d):fall<=.01?1:1-smooth(1-fall,1,d);if(sh==='spray')w*=hash2(i,j,(stroke&&stroke.sprayS)||1)>.6?1:.12;
+    const k=j*N+i,s=w*st*(tool==='mask'||tool==='paint'||tool==='plant'?1:1-MK[k]);if(s<=0)continue;
     switch(tool){
       case'raise':H[k]+=s*rate;break;
       case'lower':H[k]=Math.max(0,H[k]-s*rate);break;
@@ -43,6 +51,10 @@ function brushAt(cx,cy,amt,p){
       case'roughen':H[k]=Math.max(0,H[k]+rn(i*.35,j*.35)*s*rate*1.2);break;
       case'terrace':{const t=H[k]/step,k0=Math.floor(t),f=t-k0;H[k]=lerp(H[k],(k0+smooth(.4,.6,f))*step,clamp(s*.3,0,1));break}
       case'paint':{const k3=k*3,t=clamp(s*.5,0,1);if(pc){if(PW[k]<.02){PC[k3]=pc[0];PC[k3+1]=pc[1];PC[k3+2]=pc[2]}else{PC[k3]=lerp(PC[k3],pc[0],t);PC[k3+1]=lerp(PC[k3+1],pc[1],t);PC[k3+2]=lerp(PC[k3+2],pc[2],t)}PW[k]=Math.min(1,PW[k]+s*.4)}else PW[k]=Math.max(0,PW[k]-s*.4);break}
+      case'pinch':{let sum=0;for(let dj=-2;dj<=2;dj++)for(let di=-2;di<=2;di++)sum+=src[(j-j0+2+dj)*sw+(i-i0+2+di)];H[k]=Math.max(0,H[k]+(H[k]-sum/25)*clamp(s*.9,0,1));break}
+      case'crease':H[k]=Math.max(0,H[k]-Math.pow(w,2.5)*st*rate*1.6*(1-MK[k]));break;
+      case'smudge':{const dx=(stroke&&stroke.dir?stroke.dir[0]:0)*rad*.35,dy=(stroke&&stroke.dir?stroke.dir[1]:0)*rad*.35,si=Math.round(i-dx),sj=Math.round(j-dy);const v=si>=i0-2&&si<=i1+2&&sj>=j0-2&&sj<=j1+2?src[(sj-j0+2)*sw+(si-i0+2)]:H[clamp(sj,0,N-1)*N+clamp(si,0,N-1)];H[k]=lerp(H[k],v,clamp(s*.55,0,1));break}
+      case'mask':MK[k]=clamp(MK[k]+(S.maskMode==='add'?1:-1)*s*.6,0,1);break;
       case'plant':SM[k]=clamp(SM[k]+(S.plant==='add'?1:-1)*s*.5,0,S.plant==='add'?2.5:1);break;
       case'channel':H[k]=Math.max(0,H[k]-s*s*rate*1.6);WM[k]=Math.min(1,WM[k]+s*.3);break;
     }
@@ -51,15 +63,17 @@ function brushAt(cx,cy,amt,p){
 }
 function stampAt(p){
   const W=S.shape.world,g=(N-1)/W,rad=Math.max(2,S.brush.size*g),amp=Math.min(S.brush.size*1.1,S.shape.maxH*1.2)*S.brush.strength*1.6,rot=Math.random()*Math.PI*2,rn=makeNoise((Math.random()*1e9)|0),cs=Math.cos(rot),sn=Math.sin(rot);
-  const go=cx=>{const cy=p.gy,i0=Math.max(0,Math.floor(cx-rad)),i1=Math.min(N-1,Math.ceil(cx+rad)),j0=Math.max(0,Math.floor(cy-rad)),j1=Math.min(N-1,Math.ceil(cy+rad));
+  const go=(cx,cy)=>{i0=Math.max(0,Math.floor(cx-rad)),i1=Math.min(N-1,Math.ceil(cx+rad)),j0=Math.max(0,Math.floor(cy-rad)),j1=Math.min(N-1,Math.ceil(cy+rad));
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const dx=(i-cx)/rad,dy=(j-cy)/rad,d=Math.hypot(dx,dy);if(d>=1.15)continue;const ax=dx*cs-dy*sn,ay=dx*sn+dy*cs,v=stampProfile(S.stamp,d,ax,ay,rn)*amp,k=j*N+i;
       H[k]=Math.max(0,H[k]+v)}
     updateRegion(i0-1,j0-1,i1+1,j1+1)};
-  go(p.gx);if(S.brush.mirror)go(N-1-p.gx);
+  for(const [x,y] of symPoints(p.gx,p.gy))go(x,y);
 }
+function symPoints(gx,gy){const c=(N-1)/2,o=[[gx,gy]],sy=S.brush.mirror&&S.brush.sym==='none'?'x':S.brush.sym;
+  if(sy==='x')o.push([N-1-gx,gy]);else if(sy==='z')o.push([gx,N-1-gy]);else if(sy&&sy[0]==='r'){const n=+sy.slice(1),dx=gx-c,dy=gy-c;for(let q=1;q<n;q++){const a=q/n*Math.PI*2,cs=Math.cos(a),sn=Math.sin(a);o.push([c+dx*cs-dy*sn,c+dx*sn+dy*cs])}}return o}
 function applyBrush(p,amt){
   const pr=stroke&&stroke.pressure?clamp(stroke.pressure*1.6,.2,1.6):1;
-  brushAt(p.gx,p.gy,amt*pr,p);if(S.brush.mirror)brushAt(N-1-p.gx,p.gy,amt*pr,p);
+  for(const [x,y] of symPoints(p.gx,p.gy))brushAt(x,y,amt*pr,p);
 }
 
 /* ---------------- erosion ---------------- */
@@ -101,10 +115,10 @@ async function runErosion(kind,amount){
 
 /* ---------------- undo ---------------- */
 const undoS=[],redoS=[];
-const snap=()=>({N,H:H.slice(),PC:PC.slice(),PW:PW.slice(),SM:SM.slice(),WM:WM.slice(),maxH:S.shape.maxH});
-const undoLimit=()=>clamp(Math.floor(QUALITY[S.quality].undoMB*1048576/(N*N*40)),3,16);
+const snap=()=>({N,H:H.slice(),PC:PC.slice(),PW:PW.slice(),SM:SM.slice(),WM:WM.slice(),MK:MK.slice(),DF:DF.slice(),maxH:S.shape.maxH});
+const undoLimit=()=>clamp(Math.floor(QUALITY[S.quality].undoMB*1048576/(N*N*48)),3,16);
 function pushUndo(){undoS.push(snap());while(undoS.length>undoLimit())undoS.shift();redoS.length=0;syncUndo()}
-function restore(s){const resChanged=s.N!==N;N=s.N;H=s.H;PC=s.PC;PW=s.PW;SM=s.SM;WM=s.WM;S.shape.maxH=prevMaxH=s.maxH;if(resChanged){genMoist();buildGeometry()}if(typeof fluidSync==='function')fluidSync();updateAll();if(typeof renderSheet==='function')renderSheet();saveSoon()}
+function restore(s){const resChanged=s.N!==N;N=s.N;H=s.H;PC=s.PC;PW=s.PW;SM=s.SM;WM=s.WM;MK=s.MK||new Float32Array(N*N);DF=s.DF||new Float32Array(N*N);S.shape.maxH=prevMaxH=s.maxH;if(resChanged){genMoist();buildGeometry()}if(typeof fluidSync==='function')fluidSync();updateAll();if(typeof renderSheet==='function')renderSheet();saveSoon()}
 function undo(){if(!undoS.length)return;redoS.push(snap());restore(undoS.pop());syncUndo();toast('Undone')}
 function redo(){if(!redoS.length)return;undoS.push(snap());restore(redoS.pop());syncUndo();toast('Redone')}
 function syncUndo(){$('#undo').disabled=!undoS.length;$('#redo').disabled=!redoS.length}

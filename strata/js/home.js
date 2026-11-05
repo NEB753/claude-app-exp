@@ -10,13 +10,13 @@ let curId=null,lastThumb=0;
 const newId=()=>'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 function snapshot(){try{renderer.render(scene,camera);const c=document.createElement('canvas'),w=320,h=240;c.width=w;c.height=h;const x=c.getContext('2d'),src=renderer.domElement,sw=src.width,sh=src.height,s=Math.min(sw/w,sh/h);
   x.fillStyle=getComputedStyle(document.body).getPropertyValue('--sky-b')||'#bcd';x.fillRect(0,0,w,h);x.drawImage(src,(sw-w*s)/2,(sh-h*s)/2-sh*.08,w*s,h*s,0,0,w,h);return c.toDataURL('image/jpeg',.72)}catch(e){return null}}
-function packProject(){return{S:JSON.parse(JSON.stringify(S)),N,H,PC:Uint8Array.from(PC),PW:Uint8Array.from(PW,v=>v*255),SM:Uint8Array.from(SM,v=>clamp(v*100,0,255)),WM:Uint8Array.from(WM,v=>v*255)}}
+function packProject(){return{S:JSON.parse(JSON.stringify(S)),N,H,PC:Uint8Array.from(PC),PW:Uint8Array.from(PW,v=>v*255),SM:Uint8Array.from(SM,v=>clamp(v*100,0,255)),WM:Uint8Array.from(WM,v=>v*255),MK:Uint8Array.from(MK,v=>v*255),DF:Uint8Array.from(DF,v=>v*255)}}
 function unpackProject(d){const def=DEF(),s=d.S;
-  S={...def,...s,shape:{...def.shape,...s.shape},biome:{...def.biome,...s.biome},brush:{...def.brush,...s.brush},ero:{...def.ero,...s.ero},fluid:{...def.fluid,...s.fluid},lava:{...def.lava,...s.lava},snow:{...def.snow,...s.snow},wind:{...def.wind,...s.wind},sim:{...def.sim,...s.sim},
+  S={...def,...s,shape:{...def.shape,...s.shape},biome:{...def.biome,...s.biome},brush:{...def.brush,...s.brush},ero:{...def.ero,...s.ero},fluid:{...def.fluid,...s.fluid},lava:{...def.lava,...s.lava},snow:{...def.snow,...s.snow},wind:{...def.wind,...s.wind},sim:{...def.sim,...s.sim},weather:{...def.weather,...(s.weather||{})},
     view:{...def.view,...s.view},exp:{...def.exp,...s.exp},photo:{...def.photo,...s.photo},sub:{...def.sub,...s.sub},
     scatter:{on:s.scatter?s.scatter.on!==false:true,types:Object.fromEntries(Object.entries(scatterDefaults()).map(([k,v])=>[k,{...v,...(s.scatter&&s.scatter.types&&s.scatter.types[k])}]))}};
   if(!QUALITY[S.quality])S.quality=autoQuality();if(!['create','sculpt','simulate','biome','export'].includes(S.tab))S.tab='create';
-  N=d.N;H=d.H instanceof Float32Array?d.H:new Float32Array(d.H);PC=Float32Array.from(d.PC);PW=Float32Array.from(d.PW,v=>v/255);SM=Float32Array.from(d.SM,v=>v/100);WM=Float32Array.from(d.WM,v=>v/255)}
+  N=d.N;H=d.H instanceof Float32Array?d.H:new Float32Array(d.H);PC=Float32Array.from(d.PC);PW=Float32Array.from(d.PW,v=>v/255);SM=Float32Array.from(d.SM,v=>v/100);WM=Float32Array.from(d.WM,v=>v/255);MK=d.MK?Float32Array.from(d.MK,v=>v/255):new Float32Array(N*N);DF=d.DF?Float32Array.from(d.DF,v=>v/255):new Float32Array(N*N)}
 async function saveProject(withThumb){if(!H)return;if(!curId)curId=newId();const now=Date.now(),meta=(await DB.get('meta',curId).catch(()=>null))||{id:curId,created:now};
   meta.name=S.name;meta.updated=now;meta.N=N;meta.preset=S.preset;if(withThumb||!meta.thumb||now-lastThumb>20000){const t=snapshot();if(t){meta.thumb=t;lastThumb=now}}
   await DB.set('proj',curId,packProject());await DB.set('meta',curId,meta);await DB.set('kv','current',curId)}
@@ -95,6 +95,7 @@ async function renderSettings(body){
   <div class="seg" id="setTheme"><span class="ind"></span>${[['','System'],['light','Light'],['dark','Dark']].map(([v,l])=>`<button data-theme="${v}" aria-pressed="${(SET.theme||'')===v}">${l}</button>`).join('')}</div>
   ${stg('reduceMotion','Reduce motion','Turns off animations and the terrain morph')}
   ${setRow('Units','',`<div class="seg" id="setUnits" style="width:150px"><span class="ind"></span><button data-u="m" aria-pressed="${SET.units==='m'}">Meters</button><button data-u="ft" aria-pressed="${SET.units==='ft'}">Feet</button></div>`)}
+  <div class="label">Sound</div>${stg('sound','Sounds','Soft clicks, sculpting and nature ambience')}${sliderRow('snd.vol','Volume',0,1,.01,SET.volume??.6,.6,v=>Math.round(v*100)+'%')}
   <div class="label">Controls</div>
   ${sliderRow('cam.sens','Camera speed',.4,2,.05,SET.sens,1,v=>(+v).toFixed(2)+'×')}
   ${stg('invertY','Invert vertical drag')}${stg('leftHand','Left-handed layout','Moves the camera rail to the left')}${stg('haptics','Haptic ticks','Where the device supports vibration')}${stg('hints','Show tips','Short hints when you switch modes')}
@@ -107,13 +108,13 @@ async function renderSettings(body){
   <div class="label">Storage</div>
   ${est?`<div class="meter"><i style="width:${Math.min(100,est.usage/est.quota*100).toFixed(1)}%"></i></div><p class="hint" style="margin-top:0">${(est.usage/1048576).toFixed(1)} MB used of ${(est.quota/1048576/1024).toFixed(1)} GB available to this site</p>`:'<p class="hint">Storage size is not reported by this browser.</p>'}
   <div class="btns"><button class="btn plain press" id="clearAll" style="color:var(--bad)">Erase all creations</button></div>
-  <div class="label">About</div><p class="hint" style="margin-top:0">Strata Terrain Studio · procedural, sculpted and simulated landscapes. Projects, settings and your key never leave this device unless you export.</p>`;
-  bindSliders(body,(k,v)=>{SET.sens=v;saveSettings()},()=>1);
+  <div class="label">About</div><p class="hint" style="margin-top:0">Terrain Gen Studio V1 · procedural, sculpted and simulated landscapes. Projects, settings and your key never leave this device unless you export.</p>`;
+  bindSliders(body,(k,v)=>{if(k==='snd.vol'){SET.volume=v;auVol()}else SET.sens=v;saveSettings()},k=>k==='snd.vol'?.6:1);
   $$('[data-q]',body).forEach(b=>b.onclick=async()=>{await setQuality(b.dataset.q);renderSettings(body)});
   const th=$('#setTheme',body);requestAnimationFrame(()=>{segIndicator(th);segIndicator($('#setUnits',body))});
   $$('[data-theme]',th).forEach(b=>b.onclick=()=>{SET.theme=b.dataset.theme;saveSettings();applySettings();$$('[data-theme]',th).forEach(x=>x.setAttribute('aria-pressed',x===b));segIndicator(th)});
   $$('[data-u]',body).forEach(b=>b.onclick=()=>{SET.units=b.dataset.u;saveSettings();$$('[data-u]',body).forEach(x=>x.setAttribute('aria-pressed',x===b));segIndicator($('#setUnits',body));renderSheet()});
-  $$('input[data-sk]',body).forEach(c=>c.onchange=()=>{SET[c.dataset.sk]=c.checked;saveSettings();applySettings()});
+  $$('input[data-sk]',body).forEach(c=>c.onchange=()=>{SET[c.dataset.sk]=c.checked;saveSettings();applySettings();if(c.dataset.sk==='sound'){if(SET.sound)auInit();else loopsOff();auVol()}});
   $('#aiModel',body).onclick=e=>openMenu(e.currentTarget,Object.entries(AI_MODELS).map(([k,n])=>({v:k,label:n,sub:k==='claude-opus-5-5'?'Most capable (default)':k==='claude-sonnet-5-5'?'Faster, lower cost':'Fastest, lowest cost'})),v=>{SET.model=v;saveSettings();renderSettings(body)},SET.model);
   const ki=$('#apiKey',body);ki.onfocus=()=>{if(ki.value.startsWith('••'))ki.value=''};
   $('#keySave',body).onclick=()=>{const v=ki.value.trim();if(!v||v.startsWith('••')){toast('Paste a key first','warn');return}if(!/^sk-ant-/.test(v)){toast('Anthropic keys start with sk-ant-','warn');return}SET.apiKey=v;saveSettings();_sampleP=null;introDone=false;toast('Key saved on this device','ok');renderSettings(body)};

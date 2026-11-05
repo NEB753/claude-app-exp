@@ -1,4 +1,4 @@
-# Strata Terrain Studio
+# Terrain Gen Studio V1
 
 A phone-first terrain studio with no build step. It uses Three.js r128 from cdnjs. Open `index.html` as a Claude artifact, or deploy it as a website with the included GitHub Pages workflow (`.github/workflows/strata-pages.yml`).
 
@@ -16,3 +16,12 @@ A phone-first terrain studio with no build step. It uses Three.js r128 from cdnj
 **AI**: inside Claude it uses the built-in AI. On the website, add an Anthropic API key in Settings. Calls go through the official `@anthropic-ai/sdk` in the browser with the key stored on the device only.
 
 **Performance**: quality tiers from 129² to 1025². Renders only on change, idle sleep, frame-budgeted simulations on a coarser grid, and a memory-bounded undo stack.
+
+**V1 additions**
+- **Mobile flow**: compact panels that slide away while you orbit or sculpt, a clear-view mode, a landscape layout (side panel), a job queue, and an animated progress window.
+- **Sculpt**: Shape / Detail / Surface groups; new Pinch, Crease, Smudge and Mask brushes; tip shapes (soft, sharp, plateau, spray); symmetry (mirror, radial 3/4/6); a stroke stabilizer; dust particles, sound and haptics.
+- **Photo**: Auto mode (AI classifies sketch, contour, shaded relief, satellite or ground photo), a shape-from-shading solver, and an automatic inversion check against water and the AI plan. Roads are typed by material; buildings by type and material; props too.
+- **Simulate**: wind dunes now conserve sand; new events: Hurricane, Tornado (animated funnel), Earthquake (fault scarp + camera shake), Rockslide and Blizzard.
+- **Biome**: fir/pine, oak/birch, fallen logs and stumps, storm damage turning forest into deadfall, a forest-density control, houses, fences, wells, lamps, crates and hay bales. Trees check their whole footprint against sea, lakes and riverbeds.
+- **Nodes**: 14 more (Billow, Island mask, Crater field, Stratify, Canyons, Rivers, Flow map, Curvature, Clamp, Fold, Twist, Tilt, Sediment fill, Curve with a touch curve editor) and 4 more templates. There's an animated node guide with a live looping preview for every node.
+- **Also new**: first-person walk/fly with a joystick; a time-of-day strip and angle dials; drifting cloud shadows; and a synthesized sound engine (clicks, sculpting, rain, lava, wind, quakes).

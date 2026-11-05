@@ -1,6 +1,7 @@
-<title>Strata Terrain Sculptor</title>
+<title>Terrain Gen Studio</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Terrain Gen">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#cad9d5">
@@ -374,6 +375,70 @@ body.sculpting #top{transform:translateY(-8px);opacity:.65}
 }
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 body.reduce-motion *{transition:none!important;animation:none!important}
+/* ---- v1: queue, progress window, guide, first person, clear view, landscape, dial, time strip ---- */
+#queueBtn{position:relative}#queueBtn b{position:absolute;top:4px;right:4px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--gold);color:var(--gold-ink);font-size:10px;line-height:16px;font-weight:800}#queueBtn b:empty{display:none}
+#queueBtn.busy svg{animation:sp 2.4s linear infinite}
+.qrow{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-radius:14px}.qrow+.qrow{border-top:1px solid var(--hair)}
+.qtx{flex:1;min-width:0}.qtx b{display:block;font-size:13.5px}.qtx small{display:block;color:var(--ink-3);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qt{color:var(--ink-3);font-family:var(--f-mono);font-size:11px}
+.qbar{height:5px;border-radius:5px;background:var(--track-2);overflow:hidden;margin-top:6px}.qbar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--gold-hi));transition:width .3s}.qbar.big{height:7px;margin:12px 0 4px}
+.qspin{width:18px;height:18px;border-radius:50%;border:2.5px solid var(--track-2);border-top-color:var(--gold);animation:sp 1s linear infinite;flex:none;margin-top:2px}.qok{color:var(--gold);width:18px;height:18px;flex:none}.qbad{width:18px;height:18px;border-radius:50%;background:var(--bad);color:#fff;font-weight:800;font-size:12px;display:grid;place-items:center;flex:none}
+#pw{position:fixed;inset:0;z-index:55;display:grid;place-items:center;padding:20px;background:rgba(0,0,0,.18);transition:opacity .3s}
+#pw[hidden]{display:grid!important;opacity:0;pointer-events:none}
+.pwc{width:min(360px,100%);padding:16px;border-radius:26px;background:var(--tint-strong);animation:popIn .45s var(--spring)}
+.pwc h3{margin:12px 2px 6px;font-family:var(--f-display);font-size:19px}
+.pwimg{position:relative;height:150px;border-radius:18px;background:var(--track) center/cover;overflow:hidden;display:grid;place-items:center;color:var(--ink-3)}
+.pwimg svg{width:40px;height:40px}
+.pwimg.scan::after{content:"";position:absolute;left:0;right:0;height:38%;top:-40%;background:linear-gradient(180deg,transparent,rgba(242,210,122,.55) 80%,rgba(255,255,255,.9));mix-blend-mode:screen;animation:scan 1.6s var(--ease) infinite}
+@keyframes scan{to{top:105%}}
+.pwsteps{list-style:none;margin:0;padding:0;display:grid;gap:5px;font-size:13.5px;color:var(--ink-3)}
+.pwsteps li{display:flex;gap:9px;align-items:center;transition:color .3s}.pwsteps li i{width:16px;height:16px;border-radius:50%;border:2px solid var(--track-2);flex:none;transition:all .35s var(--spring)}
+.pwsteps li.now{color:var(--ink);font-weight:650}.pwsteps li.now i{border-color:var(--gold);border-top-color:transparent;animation:sp 1s linear infinite}
+.pwsteps li.ok{color:var(--ink-2)}.pwsteps li.ok i{background:var(--accent);border-color:var(--accent);box-shadow:inset 0 0 0 3px var(--tint-strong)}
+#ng{position:fixed;z-index:24;left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 8px);bottom:calc(env(safe-area-inset-bottom,0px) + 8px);max-width:760px;margin:0 auto;display:flex;flex-direction:column;overflow:hidden;background:var(--tint-strong);border-radius:var(--r-xl);transition:transform .5s var(--spring),opacity .3s}
+#ng[hidden]{display:flex!important;transform:translateY(105%);opacity:0;pointer-events:none}
+#ng .hh{display:flex;align-items:center;gap:8px;padding:12px 12px 4px 18px}#ng .hh h2{margin:0;flex:1;font-family:var(--f-display);font-size:24px}
+#ng .hbody{flex:1;overflow-y:auto;padding:6px 16px 20px;touch-action:pan-y}
+.ngdemo{border-radius:18px;background:var(--track);overflow:hidden;margin-bottom:12px}.ngdemo canvas{display:block;width:100%;height:150px}
+.ngcat{margin:16px 0 8px;font-family:var(--f-display);font-size:17px}
+.ngcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px}
+.ngcard{display:grid;grid-template-columns:84px 1fr;gap:12px;padding:10px;border-radius:18px;background:var(--track)}
+.ngcard canvas{width:84px;height:84px;border-radius:12px;image-rendering:auto;background:var(--track-2)}
+.ngcard b{display:flex;align-items:center;gap:6px;font-size:14px}.ngcard b i{width:8px;height:8px;border-radius:3px}
+.ngcard p{margin:3px 0;font-size:13px;line-height:1.35}.ngcard small{display:block;color:var(--ink-3);font-size:11.5px;line-height:1.35;margin-bottom:6px}.ngcard .dd{height:30px;font-size:12.5px}
+#fpUI{position:fixed;inset:0;z-index:8;pointer-events:none}
+#fpUI[hidden]{display:none!important}
+#fpJoy{position:absolute;left:max(24px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 34px);width:132px;height:132px;border-radius:50%;pointer-events:auto;touch-action:none;display:grid;place-items:center}
+#fpJoy i{width:58px;height:58px;border-radius:50%;background:linear-gradient(180deg,#fff,#d6ddd9);box-shadow:0 6px 18px var(--shadow);transition:transform .08s}
+.fpbar{position:absolute;right:max(16px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 12px);display:flex;gap:8px;pointer-events:auto;align-items:center;padding:5px;border-radius:999px}
+.fpbar button{height:40px;padding:0 14px;border-radius:999px;font-weight:700}
+.fpbar input{width:90px}
+.fpv{position:absolute;right:max(24px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 40px);display:flex;flex-direction:column;gap:10px;pointer-events:auto}
+.fpv button{width:58px;height:58px;border-radius:50%;font-weight:800;font-size:20px}
+body.fp #top,body.fp #rail,body.fp #bottom,body.fp #hud,body.fp #readout{opacity:0;pointer-events:none}
+body.sheet-full #rail{opacity:0;pointer-events:none;transform:translateX(20px)}
+body.clear #top,body.clear #rail,body.clear #bottom,body.clear #hud,body.clear #refPin,body.clear #readout{opacity:0;pointer-events:none;transform:scale(.96)}
+#clearExit{position:fixed;z-index:9;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);transform:translateX(-50%);height:40px;padding:0 16px;border-radius:999px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;transition:opacity .3s,transform .45s var(--spring)}
+#clearExit[hidden]{display:flex!important;opacity:0;transform:translate(-50%,20px);pointer-events:none}
+#top,#rail,#bottom,#hud{transition:opacity .35s,transform .5s var(--ease)}
+.dial{position:relative;width:62px;height:62px;border-radius:50%;background:radial-gradient(circle at 50% 35%,var(--tint-strong),var(--track));box-shadow:inset 0 0 0 1px var(--hair),0 3px 10px -4px var(--shadow);touch-action:none;cursor:grab;justify-self:center}
+.dial i{position:absolute;left:50%;top:50%;width:26px;height:4px;margin:-2px 0 0 0;border-radius:2px;background:linear-gradient(90deg,var(--accent),var(--gold));transform-origin:0 50%}
+.dial b{position:absolute;inset:0;display:grid;place-items:center;font-size:10px;font-weight:800;color:var(--ink-3);pointer-events:none}
+.row.dialrow{grid-template-columns:minmax(76px,96px) 1fr 58px}
+.tod{position:relative;height:74px;margin:2px 6px 8px;border-radius:16px;overflow:hidden;touch-action:none;background:linear-gradient(180deg,#1b2a44 0%,#5d7fa8 30%,#e8c792 72%,#7b5a3a 100%)}
+.tod svg{position:absolute;inset:0;width:100%;height:100%}
+.tod .sun{position:absolute;width:22px;height:22px;margin:-11px;border-radius:50%;background:radial-gradient(circle,#fff6d0,#f2c25a 60%,rgba(242,194,90,0) 72%);box-shadow:0 0 18px 6px rgba(255,220,120,.6)}
+.tod small{position:absolute;bottom:5px;font-size:10px;font-weight:700;color:rgba(255,255,255,.85)}
+.curvebox{margin:4px 0 10px}
+@media (orientation:landscape) and (max-height:560px){
+  #top{left:max(10px,env(safe-area-inset-left,0px));right:calc(max(10px,env(safe-area-inset-right,0px)) + 356px);margin:0;max-width:none;height:46px;top:calc(env(safe-area-inset-top,0px) + 6px)}
+  .brand{height:36px}.ibtn{width:36px;height:36px}.ask{height:36px}
+  #bottom{left:auto;right:max(10px,env(safe-area-inset-right,0px));width:346px;max-width:none;top:calc(env(safe-area-inset-top,0px) + 6px);bottom:calc(env(safe-area-inset-bottom,0px) + 6px);margin:0;flex-direction:column}
+  #sheet{height:auto!important;flex:1 1 auto;min-height:0}.grab{display:none}#sheetHead{padding-top:10px}
+  #rail{top:calc(env(safe-area-inset-top,0px) + 60px);right:auto;left:max(10px,env(safe-area-inset-left,0px));flex-direction:row}
+  #hud{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);left:max(10px,env(safe-area-inset-left,0px))}.vsl{height:min(42vh,160px)}
+  body.sculpting #bottom{transform:translateX(calc(100% + 20px))}
+}
+
 </style>
 
 <canvas id="view" aria-label="3D terrain view"></canvas>
@@ -381,9 +446,10 @@ body.reduce-motion *{transition:none!important;animation:none!important}
 <header id="top" class="glass">
   <button class="brand press" id="homeBtn" aria-label="Open home: creations, library and settings">
     <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent-hi)"/><stop offset="1" stop-color="var(--accent-lo)"/></linearGradient></defs><path d="M2 19 9 7l4 6 3-4 6 10z" fill="url(#lg1)"/><path d="M9 7l1.6 2.4-1.2 1-1-1.3z" fill="var(--gold-hi)"/><path d="M2 19h20" stroke="var(--ink)" stroke-width="1.6"/></svg>
-    <span class="stack"><span>Strata</span><span class="sub" id="crumb"></span></span>
+    <span class="stack"><span>Terrain Gen <small style="font-family:var(--f-mono);font-size:10px;color:var(--gold);font-weight:600">V1</small></span><span class="sub" id="crumb"></span></span>
   </button>
   <div class="spacer"></div>
+  <button class="ibtn press" id="queueBtn" aria-label="Queue of running tasks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="16" r="3"/></svg><b></b></button>
   <button class="ibtn press" id="undo" aria-label="Undo" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
   <button class="ibtn press" id="redo" aria-label="Redo" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
   <button class="ask goldm press" id="openHelper" aria-label="Open AI assistant"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9zM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg><b>Ask</b></button>
@@ -394,6 +460,8 @@ body.reduce-motion *{transition:none!important;animation:none!important}
   <button id="modeSculpt" class="press" aria-pressed="false" aria-label="Use tool on terrain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4l6 6-9 9H5v-6z"/><path d="M12 6l6 6"/></svg></button>
   <div class="sep"></div>
   <button id="frameBtn" class="press" aria-label="Frame terrain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  <button id="walkBtn" class="press" aria-label="Walk or fly in first person"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="2"/><path d="M10 21l2-6 3 3v4M8 12l3-4 4 2 2 3M12 8l-1 5"/></svg></button>
+  <button id="clearBtn" class="press" aria-label="Clear the view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
   <button id="viewBtn" class="press" aria-label="View options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
 </div>
 
@@ -443,6 +511,12 @@ body.reduce-motion *{transition:none!important;animation:none!important}
 </aside>
 
 <div id="quick" aria-label="Quick actions"></div>
+<div id="pw" hidden></div>
+<section id="ng" class="glass" hidden aria-label="Node guide"></section>
+<div id="fpUI" hidden><div id="fpJoy" class="glass"><i></i></div>
+  <div class="fpbar glass"><button class="anodized press" id="fpMode">Walk</button><input type="range" id="fpSpeed" min=".3" max="4" step=".1" value="1" aria-label="Speed"><button class="metal press" id="fpExit">Exit</button></div>
+  <div class="fpv"><button class="glass press" id="fpUp" hidden aria-label="Fly up">▲</button><button class="glass press" id="fpDown" hidden aria-label="Fly down">▼</button></div></div>
+<button id="clearExit" class="glass press" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Show tools</button>
 <div id="menuLayer"></div>
 <div id="celebrate"></div>
 <div id="toast" class="glass chip" hidden role="status"></div>
@@ -452,15 +526,20 @@ body.reduce-motion *{transition:none!important;animation:none!important}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>if(!window.THREE){document.body.insertAdjacentHTML('beforeend','<div id="fail"><p>The 3D engine could not load. Check your connection and reopen the page.</p></div>')}</script>
 <script src="js/core.js"></script>
+<script src="js/audio.js"></script>
 <script src="js/render.js"></script>
 <script src="js/scatter.js"></script>
 <script src="js/tools.js"></script>
 <script src="js/fluid.js"></script>
 <script src="js/sims.js"></script>
 <script src="js/nodes.js"></script>
+<script src="js/nodes2.js"></script>
 <script src="js/photo.js"></script>
 <script src="js/export.js"></script>
 <script src="js/ai.js"></script>
+<script src="js/jobs.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/guides.js"></script>
+<script src="js/fp.js"></script>
 <script src="js/home.js"></script>
 <script src="js/main.js"></script>

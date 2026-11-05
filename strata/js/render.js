@@ -40,14 +40,17 @@ function waterNormalTexture(){
 }
 const detailTex=detailTexture(),waterNTex=waterNormalTexture();
 /* contour-line injection shared by every terrain look */
-const CU={uContour:{value:0},uInterval:{value:25},uLine:{value:new THREE.Color(0x1b2228)}};
+function cloudTexture(){const T=128,c=document.createElement('canvas');c.width=c.height=T;const x=c.getContext('2d'),img=x.createImageData(T,T),n=makeNoise(77);
+  for(let j=0;j<T;j++)for(let i=0;i<T;i++){const a=i/T*Math.PI*2,b=j/T*Math.PI*2,v=n(Math.cos(a)*1.3+5,Math.sin(a)*1.3+Math.cos(b)*1.3)*.6+n(Math.cos(a)*2.6,Math.sin(b)*2.6+Math.sin(a)*2.6)*.4,o=(j*T+i)*4;img.data[o]=img.data[o+1]=img.data[o+2]=clamp(128+v*170,0,255);img.data[o+3]=255}
+  x.putImageData(img,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t}
+const CU={uContour:{value:0},uInterval:{value:25},uLine:{value:new THREE.Color(0x1b2228)},uTime:{value:0},uClouds:{value:1},uCloudTex:{value:cloudTexture()},uWorld:{value:3000}};
 function withContours(mat){
   mat.extensions={derivatives:true};
   mat.onBeforeCompile=sh=>{
     Object.assign(sh.uniforms,CU);
-    sh.vertexShader='varying float vWY;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvWY=(modelMatrix*vec4(transformed,1.0)).y;');
-    sh.fragmentShader='varying float vWY;uniform float uContour;uniform float uInterval;uniform vec3 uLine;\n'+sh.fragmentShader.replace('#include <fog_fragment>',
-      `if(uContour>.5){float c=vWY/uInterval;float w=max(fwidth(c),1e-4);float f=abs(fract(c-.5)-.5)/w;float ln=1.-min(f,1.);float idx=floor(c+.5);float maj=1.-step(.01,abs(mod(idx,5.)));gl_FragColor.rgb=mix(gl_FragColor.rgb,uLine,ln*mix(.32,.72,maj));}
+    sh.vertexShader='varying float vWY;varying vec2 vWXZ;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvec4 wpS=modelMatrix*vec4(transformed,1.0);vWY=wpS.y;vWXZ=wpS.xz;');
+    sh.fragmentShader='varying float vWY;varying vec2 vWXZ;uniform float uContour;uniform float uInterval;uniform vec3 uLine;uniform float uTime;uniform float uClouds;uniform sampler2D uCloudTex;uniform float uWorld;\n'+sh.fragmentShader.replace('#include <fog_fragment>',
+      `if(uContour>.5){float c=vWY/uInterval;float w=max(fwidth(c),1e-4);float f=abs(fract(c-.5)-.5)/w;float ln=1.-min(f,1.);float idx=floor(c+.5);float maj=1.-step(.01,abs(mod(idx,5.)));gl_FragColor.rgb=mix(gl_FragColor.rgb,uLine,ln*mix(.32,.72,maj));}if(uClouds>.5){float cl=texture2D(uCloudTex,vWXZ/uWorld*1.15+vec2(uTime*.0045,uTime*.0028)).r;gl_FragColor.rgb*=mix(1.,.74,smoothstep(.56,.78,cl));}
 #include <fog_fragment>`);
   };
   return mat;
@@ -88,7 +91,7 @@ function updateRegion(i0,j0,i1,j1){
     let nx=(hl-hr)*vex,ny=2*cell,nz=(hu-hd)*vex;const l=1/Math.hypot(nx,ny,nz);nx*=l;ny*=l;nz*=l;
     nor[k3]=nx;nor[k3+1]=ny;nor[k3+2]=nz;
     if(colors){const ao=clamp(1+((h-(hl+hr+hu+hd)/4)/cell)*1.4,.66,1.12),c=colorAt(h,ny,M[k],ao,PC[k3],PC[k3+1],PC[k3+2],PW[k],WM[k]);
-      col[k3]=toLin(c[0]);col[k3+1]=toLin(c[1]);col[k3+2]=toLin(c[2])}
+      col[k3]=toLin(c[0]);col[k3+1]=toLin(c[1]);col[k3+2]=toLin(c[2]);if(S.view.mask&&MK[k]>.01){const t=MK[k]*.55;col[k3]=lerp(col[k3],.9,t);col[k3+1]=lerp(col[k3+1],.52,t);col[k3+2]=lerp(col[k3+2],.06,t)}}
   }
   for(const a of ['position','normal','color']){const at=geo.attributes[a];at.updateRange.offset=j0*N*3;at.updateRange.count=(j1-j0+1)*N*3;at.needsUpdate=true}
   if(i0===0||j0===0||i1===N-1||j1===N-1)baseDirty=true;
@@ -203,7 +206,7 @@ function applyTheme(){
 function applyQuality(){const Q=QUALITY[S.quality];renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,Q.dpr));resize();fitSun()}
 
 /* ---------------- camera ---------------- */
-const cam={theta:.75,phi:.98,r:5000,target:new THREE.Vector3()};let viewShift=0,lastLA=0;
+const cam={theta:.75,phi:.98,r:5000,target:new THREE.Vector3()};let viewShift=0,viewShiftX=0,lastLA=0;
 function frame(anim){const W=S.shape.world,to={r:W*1.5,phi:.98,theta:cam.theta,tx:0,ty:(stats.lo+(stats.hi-stats.lo)*.25)*S.view.vex,tz:0};if(anim)animateCam(to,700);else{cam.r=to.r;cam.phi=to.phi;cam.target.set(to.tx,to.ty,to.tz);placeCamera()}}
 let camAnim=null;const easeIO=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 function animateCam(to,ms){const from={r:cam.r,phi:cam.phi,theta:cam.theta,tx:cam.target.x,ty:cam.target.y,tz:cam.target.z};let dt=to.theta-from.theta;dt=((dt+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;to.theta=from.theta+dt;camAnim={from,to,t0:performance.now(),ms:SET.reduceMotion?1:ms}}
@@ -227,10 +230,10 @@ function placeCamera(){
   const la=Math.round((cam.theta*180/Math.PI)%360);if(Math.abs(la-lastLA)>2){lastLA=la;const r=document.documentElement.style;r.setProperty('--la',(210+la)+'deg');r.setProperty('--lx',(50+Math.sin(cam.theta)*30).toFixed(0)+'%')}
   touch();
 }
-function setViewShift(px){viewShift=px;resize()}
+function setViewShift(px,pxX){viewShift=px;viewShiftX=pxX||0;resize()}
 function resize(){
   const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;
-  const o=Math.max(0,Math.round(viewShift));if(o>0)camera.setViewOffset(w,h+2*o,0,2*o,w,h);else camera.clearViewOffset();
+  const o=Math.max(0,Math.round(viewShift)),ox=Math.max(0,Math.round(viewShiftX));if((o>0||ox>0)&&!(typeof FP!=='undefined'&&FP.on))camera.setViewOffset(w+2*ox,h+2*o,2*ox,2*o,w,h);else camera.clearViewOffset();
   camera.updateProjectionMatrix();dirty=true;
 }
 addEventListener('resize',()=>{resize();if(typeof layoutSheet==='function')layoutSheet()});
@@ -258,3 +261,15 @@ function updateSpringMarkers(){
   const put=(mesh,list,max)=>{mesh.count=Math.min(list.length,max);for(let i=0;i<mesh.count;i++){const sp=list[i],h=hAt(sp.u*(N-1),sp.v*(N-1))*S.view.vex;m.makeScale(s,s,s);m.setPosition((sp.u-.5)*W,h+s,(sp.v-.5)*W);mesh.setMatrixAt(i,m)}mesh.instanceMatrix.needsUpdate=true};
   put(springMesh,S.fluid.springs,16);put(ventMesh,S.lava.vents,8);dirty=true;
 }
+
+/* sculpt dust: a small particle burst at the brush, only alive while sculpting */
+const DUST={n:220,i:0,alive:0};
+(function(){const g=new THREE.BufferGeometry(),n=DUST.n;g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(n*3),3).setUsage(THREE.DynamicDrawUsage));g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(n*3),3).setUsage(THREE.DynamicDrawUsage));
+  DUST.v=new Float32Array(n*3);DUST.life=new Float32Array(n);DUST.pts=new THREE.Points(g,new THREE.PointsMaterial({size:6,sizeAttenuation:true,vertexColors:true,transparent:true,opacity:.85,depthWrite:false}));DUST.pts.frustumCulled=false;DUST.pts.visible=false;scene.add(DUST.pts)})();
+function emitDust(p,count,rgb){const W=S.shape.world,pos=DUST.pts.geometry.attributes.position.array,col=DUST.pts.geometry.attributes.color.array,r=S.brush.size,h=hAt(p.gx,p.gy)*S.view.vex;DUST.pts.material.size=Math.max(2,W*.0018);
+  const c=rgb||[.62,.52,.4];for(let q=0;q<count;q++){const i=DUST.i=(DUST.i+1)%DUST.n,a=Math.random()*6.283,d=Math.sqrt(Math.random())*r;pos[i*3]=p.x+Math.cos(a)*d;pos[i*3+1]=h+Math.random()*r*.05;pos[i*3+2]=p.z+Math.sin(a)*d;
+    DUST.v[i*3]=Math.cos(a)*r*.15;DUST.v[i*3+1]=r*(.25+Math.random()*.4);DUST.v[i*3+2]=Math.sin(a)*r*.15;DUST.life[i]=.6+Math.random()*.5;const b=.85+Math.random()*.3;col[i*3]=c[0]*b;col[i*3+1]=c[1]*b;col[i*3+2]=c[2]*b}
+  DUST.alive=1.2;DUST.pts.visible=true}
+function dustTick(dt){if(DUST.alive<=0)return;DUST.alive-=dt;const pos=DUST.pts.geometry.attributes.position.array,g=S.brush.size*.9;
+  for(let i=0;i<DUST.n;i++){if(DUST.life[i]<=0)continue;DUST.life[i]-=dt;DUST.v[i*3+1]-=g*dt;pos[i*3]+=DUST.v[i*3]*dt;pos[i*3+1]+=DUST.v[i*3+1]*dt;pos[i*3+2]+=DUST.v[i*3+2]*dt;if(DUST.life[i]<=0)pos[i*3+1]=-1e6}
+  DUST.pts.geometry.attributes.position.needsUpdate=true;if(DUST.alive<=0)DUST.pts.visible=false;dirty=true}

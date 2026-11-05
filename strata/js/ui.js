@@ -59,6 +59,22 @@ function bindSegs(root,onChange){
 function ddBtn(id,label,cls){return `<button class="dd ${cls||'metal'} press" id="${id}" type="button" aria-haspopup="listbox"><span>${esc(label)}</span>${CHEV}</button>`}
 const acc=(title,body,open,sum)=>`<details class="acc"${open?' open':''}><summary>${title}${sum!=null?`<span class="sum">${sum}</span>`:''}<span class="chev" style="${sum!=null?'margin-left:8px':'margin-left:auto'}">${CHEVR}</span></summary><div class="acc-body">${body}</div></details>`;
 
+/* ---------- dial (angles) and time-of-day strip ---------- */
+const COMPASS=v=>['E','SE','S','SW','W','NW','N','NE'][Math.round(v/45)%8];
+function dialRow(k,label,f){FMT[k]=f||(v=>COMPASS(v)+' '+Math.round(v)+'°');const v=getK(k);return `<div class="row dialrow" data-dk="${k}"><label>${label}</label><div class="dial" role="slider" tabindex="0" aria-label="${esc(label)}" aria-valuenow="${v}"><i style="transform:rotate(${v}deg)"></i><b>${COMPASS(v)}</b></div><span class="val" style="font-family:var(--f-mono);font-size:12px;text-align:right;color:var(--ink-2)">${FMT[k](v)}</span></div>`}
+function bindDials(root,onChange){$$('[data-dk]',root).forEach(row=>{const k=row.dataset.dk,d=row.querySelector('.dial'),i=d.querySelector('i'),bb=d.querySelector('b'),val=row.querySelector('.val');let on=false;
+  const put=a=>{a=((Math.round(a)%360)+360)%360;i.style.transform=`rotate(${a}deg)`;bb.textContent=COMPASS(a);val.textContent=FMT[k](a);d.setAttribute('aria-valuenow',a);if(getK(k)!==a){setK(k,a);sfx('tick');(onChange||onParam)(k,a,false)}};
+  const at=e=>{const r=d.getBoundingClientRect();put(Math.atan2(e.clientY-(r.top+r.height/2),e.clientX-(r.left+r.width/2))*180/Math.PI)};
+  d.onpointerdown=e=>{on=true;try{d.setPointerCapture(e.pointerId)}catch(_){}at(e)};d.onpointermove=e=>{if(on)at(e)};d.onpointerup=d.onpointercancel=()=>{if(on){on=false;(onChange||onParam)(k,getK(k),true)}};
+  d.onkeydown=e=>{const s={ArrowLeft:-5,ArrowRight:5,ArrowUp:5,ArrowDown:-5}[e.key];if(s){e.preventDefault();put(getK(k)+s)}}})}
+function todHTML(){return `<div class="tod" id="tod" role="slider" aria-label="Time of day" tabindex="0"><svg viewBox="0 0 100 40" preserveAspectRatio="none"><path d="M2 36 Q50 -26 98 36" fill="none" stroke="rgba(255,255,255,.45)" stroke-width=".8" stroke-dasharray="2 2"/></svg><div class="sun"></div><small style="left:10px">Dawn</small><small style="left:50%;transform:translateX(-50%)">Noon</small><small style="right:10px">Dusk</small></div>`}
+function bindTod(root){const el=$('#tod',root);if(!el)return;const sun=el.querySelector('.sun');
+  const place=()=>{const t=S.view.tod,x=2+t*96,y=36-62*t*(1-t)*1.0;sun.style.left=x+'%';sun.style.top=(y/40*100)+'%'};place();
+  const apply=t=>{S.view.tod=clamp(t,0,1);S.view.sunEl=4+78*Math.sin(Math.PI*S.view.tod);S.view.sunAz=(90+S.view.tod*180)%360;place();fitSun();sfx('tick');saveSoon()};
+  let on=false;const at=e=>{const r=el.getBoundingClientRect();apply((e.clientX-r.left)/r.width)};
+  el.onpointerdown=e=>{on=true;try{el.setPointerCapture(e.pointerId)}catch(_){}at(e)};el.onpointermove=e=>{if(on)at(e)};el.onpointerup=el.onpointercancel=()=>{on=false};
+  el.onkeydown=e=>{const s={ArrowLeft:-.03,ArrowRight:.03}[e.key];if(s){e.preventDefault();apply(S.view.tod+s)}}}
+
 /* ---------- popovers ---------- */
 let popEl=null,popClose=null;
 function openPanel(anchor,html,onMount,opts){
@@ -86,17 +102,19 @@ const TABS=[
   ['biome','Biome','<path d="M12 21v-6"/><path d="M12 3l5 7h-3l4 5H6l4-5H7z"/>'],
   ['export','Export','<path d="M12 4v11M7 10l5 5 5-5"/><path d="M4 18v2h16v-2"/>']
 ];
-const DETENT_DEFAULT={create:'half',sculpt:'peek',simulate:'half',biome:'half',export:'half'};
+const DETENT_DEFAULT={create:'peek',sculpt:'peek',simulate:'peek',biome:'peek',export:'half'};
+const landscape=()=>innerWidth>innerHeight&&innerHeight<=560;
 let sheetState='half',insets={t:0,b:0};
 function measureInsets(){const p=document.createElement('div');p.style.cssText='position:fixed;left:0;top:0;width:1px;height:1px;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden';document.body.appendChild(p);const cs=getComputedStyle(p);insets={t:parseFloat(cs.paddingTop)||0,b:parseFloat(cs.paddingBottom)||0};p.remove()}
 const wide=()=>matchMedia('(min-width:900px)').matches;
 function detentH(s){const dockH=72,top=insets.t+70,avail=innerHeight-top-dockH-insets.b-26;return s==='peek'?Math.min(190,avail):s==='full'?avail:Math.min(Math.max(innerHeight*.45,300),avail)}
 function layoutSheet(h){
+  if(landscape()){setViewShift(0,178);return}
   if(wide()){setViewShift(0);return}
   const H_=h!=null?h:detentH(sheetState);$('#sheet').style.setProperty('--sheet-h',H_+'px');$('#bottom').style.setProperty('--sheet-h',H_+'px');
   const topY=insets.t+66,botY=innerHeight-H_-72-insets.b-24,c=(topY+botY)/2;setViewShift(Math.max(0,innerHeight/2-c));
 }
-function setDetent(s){sheetState=s;layoutSheet();haptic(5)}
+function setDetent(s){sheetState=s;document.body.classList.toggle('sheet-full',s==='full');layoutSheet();haptic(5)}
 function sheetGesture(el,allowSwipe){const sh=$('#sheet');let st=null;
   el.addEventListener('pointerdown',e=>{if(e.target.closest('button,input,textarea,.dd'))return;st={x:e.clientX,y:e.clientY,h:sh.getBoundingClientRect().height,mode:null,id:e.pointerId}});
   el.addEventListener('pointermove',e=>{if(!st)return;const dx=e.clientX-st.x,dy=e.clientY-st.y;
@@ -144,11 +162,11 @@ for(const [id,apply] of [['hudSize',p=>{const W=S.shape.world;S.brush.size=5*Mat
 /* ---------- view menu (rail) ---------- */
 $('#viewBtn').onclick=e=>{
   const html=`<h4>Look</h4><div style="padding:0 6px 6px">${ddBtn('lookDD',LOOKS[S.view.look].n,'metal wide')}</div>
-  <h4>Show</h4><div style="padding:0 8px">${tg('view.water','Water')}${tg('view.base','Diorama base')}${tg('view.shadows','Shadows')}${tg('view.contours','Contour lines','Every '+CU.uInterval.value+' m, bold every 5th')}${tg('view.anim','Moving water','Sleeps when you stop touching')}${tg('view.wire','Wireframe')}</div>
-  <h4>Light</h4><div style="padding:0 8px">${sliderRow('view.sunEl','Sun height',4,85,1,null,34,v=>Math.round(v)+'°')}${sliderRow('view.sunAz','Sun dir.',0,360,1,null,135,v=>Math.round(v)+'°')}${sliderRow('view.vex','Exaggerate',.5,3,.05,null,1,v=>(+v).toFixed(2)+'×')}</div>`;
+  <h4>Show</h4><div style="padding:0 8px">${tg('view.water','Water')}${tg('view.base','Diorama base')}${tg('view.shadows','Shadows')}${tg('view.contours','Contour lines','Every '+CU.uInterval.value+' m, bold every 5th')}${tg('view.anim','Moving water','Sleeps when you stop touching')}${tg('view.clouds','Drifting cloud shadows','Cheap, and pauses when idle')}${tg('view.mask','Show sculpt mask')}${tg('view.wire','Wireframe')}</div>
+  <h4>Time of day</h4>${todHTML()}<div style="padding:0 8px">${dialRow('view.sunAz','Sun from')}${sliderRow('view.vex','Exaggerate',.5,3,.05,null,1,v=>(+v).toFixed(2)+'×')}</div>`;
   openPanel(e.currentTarget,html,p=>{
     $('#lookDD',p).onclick=ev=>openMenu(ev.currentTarget,Object.entries(LOOKS).map(([k,l])=>({v:k,label:l.n,sub:l.d})),v=>{setLook(v);saveSoon()},S.view.look);
-    bindToggles(p);bindSliders(p);
+    bindToggles(p);bindSliders(p);bindDials(p);bindTod(p);
   },{width:330});
 };
 
@@ -157,7 +175,7 @@ const TIPS={
   generate:'Drag the <b>character pad</b> to reshape the whole range: right is more rugged, down is older and more eroded. Long-press any slider for Reset or Randomize; slide your finger away from a slider for fine control.',
   nodes:'Tap an output dot, then an input dot to wire nodes. Drag the background to pan, pinch to zoom. Changes rebuild the land live.',
   photo:'Pick any picture. The AI separates <b>terrain</b> from <b>roads, rivers, bridges and buildings</b>, so a road stays a road. Without AI, thin lines are filtered out before heights are made.',
-  sculpt:'Use the <b>size</b> and <b>strength</b> bars on the left edge while sculpting. Dabs follow your finger evenly; turn on <b>Airbrush</b> to keep building while you hold still. Long-press the map in camera mode for quick actions.',
+  sculpt:'Pick a group (Shape, Detail, Surface), then a tool. <b>Pinch</b> sharpens ridges, <b>Crease</b> cuts fine valleys, <b>Smudge</b> drags land along your stroke, and <b>Mask</b> protects areas. Use the <b>size</b> and <b>strength</b> bars on the left edge while sculpting. Dabs follow your finger evenly; turn on <b>Airbrush</b> to keep building while you hold still. Long-press the map in camera mode for quick actions.',
   simulate:'Pick a simulation, choose how long, and tap play. The ring fills as it runs and turns gold when the result is <b>baked into the land</b>. Every run can be undone.',
   biome:'Colors follow height, slope, moisture and wetness. Trees and rocks follow per-type rules and stay off roads, sand, rock and riverbeds. Paint with <b>Plant</b> in Sculpt to grow or clear areas.',
   export:'Pick where it is going. Every package uses <b>one seamless 0–1 UV square</b> with baked albedo, normal and AO maps, so lower mesh detail keeps its look.'
@@ -196,19 +214,25 @@ function renderSheet(anim){
         <div style="flex:1;min-width:0"><div class="label" style="margin-top:0">Interpret as</div>${ddBtn('modeDD',PHOTO_MODES[P.mode].n,'metal wide')}<p class="hint">${PHOTO_MODES[P.mode].d}</p></div></div>
       ${REF.status?`<p class="ai-note" style="margin-top:10px">${esc(REF.status)}</p>`:''}<div style="height:6px"></div>
       ${sliderRow('photo.height','Height',0,1,.01,null,.6,pct)+sliderRow('photo.detail','Roughness',0,1,.01,null,.2,pct)+sliderRow('photo.blur','Smoothing',0,8,1,null,2)}
-      ${tg('photo.ai','AI reading','Separates terrain from roads, rivers, bridges and buildings')}${tg('photo.thin','Ignore thin lines','Keeps roads, fences and wires from becoming ridges')}${tg('photo.scatter','Grow what the AI sees','Sets forest, bush, grass and rock density')}${tg('photo.colors','Colors from image','For top-down maps and aerial photos')}${tg('photo.invert','Invert brightness')}${tg('photo.pin','Pin reference on screen','Sculpt by eye against the picture')}
+      ${tg('photo.quick','Build as soon as I pick an image','One tap: pick, watch the analysis, done')}${tg('photo.ai','AI reading','Claude studies style, light, water, roads, bridges, buildings and props')}${tg('photo.thin','Ignore thin lines','Keeps roads, fences and wires from becoming ridges')}${tg('photo.scatter','Grow what the AI sees','Sets forest, bush, grass and rock density')}${tg('photo.colors','Colors from image','For top-down maps and aerial photos')}${tg('photo.invert','Invert brightness')}${tg('photo.pin','Pin reference on screen','Sculpt by eye against the picture')}
       <div class="btns"><button class="btn anodized press" id="photoBuild" ${REF.img?'':'disabled'}>Build terrain</button></div>${REF.ai?`<div class="btns"><button class="btn plain press" id="photoReread">Read again with AI</button></div>`:''}
       <p class="tip" style="margin-top:12px">${TIPS.photo}</p>`}
   }else if(t==='sculpt'){
+    const cat=S.brush.cat||'shape',tl=TOOL_CATS[cat].t;
     const ctxh=S.tool==='stamp'?`<div class="label">Landform stamp · tap the map to place</div><div class="chips">${Object.entries(STAMPS).map(([k,l])=>`<button class="chipb press" data-stamp="${k}" aria-pressed="${S.stamp===k}">${l}</button>`).join('')}</div>`:
       S.tool==='paint'?`<div class="label">Paint material</div><div class="chips">${Object.entries(PAINTS).map(([k,p])=>`<button class="chipb press" data-paint="${k}" aria-pressed="${S.paint===k}">${p.c?`<span class="swatch" style="background:rgb(${p.c})"></span>`:''}${p.n}</button>`).join('')}</div>`:
-      S.tool==='plant'?`<div class="label">Vegetation</div>${seg('plant',[['add','Grow more'],['remove','Clear area']])}`:'';
-    h=`<div class="tools">${TOOLS.map(([k,l,p])=>`<button class="tool press${S.tool===k?' anodized':''}" data-tool="${k}" aria-pressed="${S.tool===k}">${svg(p)}${l}</button>`).join('')}</div>${ctxh}
-    ${acc('Brush',sliderRow('brush.size','Size',5,Math.round(S.shape.world*.3),1,null,240,v=>fmtLen(v*2))+sliderRow('brush.strength','Strength',.05,1,.01,null,.5,pct)+sliderRow('brush.falloff','Softness',0,1,.01,null,.7,pct)+tg('brush.mirror','Mirror left / right','Sculpt both halves at once')+tg('brush.hold','Airbrush','Keep building while you hold still'),true)}
+      S.tool==='plant'?`<div class="label">Vegetation</div>${seg('plant',[['add','Grow more'],['remove','Clear area']])}`:
+      S.tool==='mask'?`<div class="label">Mask protects land from every height tool</div>${seg('maskMode',[['add','Protect'],['remove','Unprotect']])}<div class="btns"><button class="btn plain press" id="mkSlope">Protect cliffs</button><button class="btn plain press" id="mkInv">Invert</button><button class="btn plain press" id="mkClr">Clear</button></div>`:'';
+    h=`<div class="chips">${Object.entries(TOOL_CATS).map(([k,c])=>`<button class="chipb press" data-tcat="${k}" aria-pressed="${cat===k}">${c.n}</button>`).join('')}</div>
+    <div class="tools">${TOOLS.filter(t=>tl.includes(t[0])).map(([k,l,p])=>`<button class="tool press${S.tool===k?' anodized':''}" data-tool="${k}" aria-pressed="${S.tool===k}">${svg(p)}${l}</button>`).join('')}</div>${ctxh}
+    ${acc('Brush',sliderRow('brush.size','Size',5,Math.round(S.shape.world*.3),1,null,240,v=>fmtLen(v*2))+sliderRow('brush.strength','Strength',.05,1,.01,null,.5,pct)+sliderRow('brush.falloff','Softness',0,1,.01,null,.7,pct)
+      +`<div class="row" style="grid-template-columns:96px 1fr"><label>Tip</label>${ddBtn('shapeDD',BRUSH_SHAPES[S.brush.shape]||'Soft','metal wide')}</div><div class="row" style="grid-template-columns:96px 1fr"><label>Symmetry</label>${ddBtn('symDD',SYMS[S.brush.sym]||'Off','metal wide')}</div>`
+      +sliderRow('brush.lazy','Stabilizer',0,.9,.01,null,.25,pct)+tg('brush.hold','Airbrush','Keep building while you hold still'),true)}
     <p class="tip" style="margin-top:10px">${TIPS.sculpt}</p>`;
   }else if(t==='simulate'){
     const k=S.sub.sim,d=SIMDEF[k],run=SR.running&&SR.kind===k,lv=S.sim.level;
-    h=seg('sub.sim',[['water','Water'],['lava','Lava'],['snow','Snow'],['wind','Wind'],['erode','Erode']],'big')+`
+    const KINDS=[['water','Water'],['lava','Lava'],['snow','Snow'],['wind','Wind'],['erode','Erode']],EVENTS=[['storm','Hurricane'],['tornado','Tornado'],['quake','Earthquake'],['slide','Rockslide'],['blizzard','Blizzard']];
+    h=`<div class="label" style="margin-top:0">Nature</div><div class="chips">${KINDS.map(([v,l])=>`<button class="chipb press" data-simk="${v}" aria-pressed="${k===v}">${l}</button>`).join('')}</div><div class="label" style="margin-top:4px">Weather & events</div><div class="chips">${EVENTS.map(([v,l])=>`<button class="chipb press" data-simk="${v}" aria-pressed="${k===v}">${l}</button>`).join('')}</div>`+`
     <div class="simcard"><button class="play ${run?'metal':'anodized'} press" id="simPlay" aria-label="${run?'Pause':'Run'} ${d.title}">
       <svg class="ring" viewBox="0 0 72 72"><circle class="bg" cx="36" cy="36" r="33"/><circle class="fg" id="simProg" cx="36" cy="36" r="33" stroke-dasharray="207.3" stroke-dashoffset="${run?207.3*(1-(SR.target===Infinity?.25:SR.steps/SR.target)):207.3}"/></svg>${svg(run?IC.pause:IC.play).replace('<svg','<svg class="ic"')}</button>
       <div><h3>${d.title}${run?' · running':''}</h3><p id="simInfo">${(k==='water'&&!FL.R)||(k==='lava'&&!LV.R)||(k==='snow'&&!SN.R)?'Ready':d.info()}</p></div></div>
@@ -222,15 +246,17 @@ function renderSheet(anim){
     if(k==='lava')h+=`<div class="seg" role="group"><button class="press" data-ftool="vent" aria-pressed="${S.tool==='vent'}">Place vent</button></div><div class="stat"><span class="tag">${S.lava.vents.length?S.lava.vents.length+' vents':'Erupts from the highest point'}</span></div><div style="height:6px"></div>
       ${sliderRow('lava.rate','Eruption',0,1,.01,null,.6,pct)+sliderRow('lava.fluid','Runniness',0,1,.01,null,.6,pct)+sliderRow('lava.cool','Cooling',0,1,.01,null,.45,pct)}<div class="btns"><button class="btn plain press" id="lVents">Remove vents</button></div>`;
     if(k==='snow')h+=sliderRow('snow.fall','Snowfall',0,1,.01,null,.5,pct)+sliderRow('snow.line','Snow line',0,1,.01,null,.45,v=>fmtLen(v*S.shape.maxH))+sliderRow('snow.repose','Avalanche',25,50,1,null,36,v=>Math.round(v)+'°')+sliderRow('snow.melt','Melt',0,1,.01,null,.35,pct)+tg('snow.addHeight','Pack snow into the land','Adds snow depth to the mesh when baked');
-    if(k==='wind')h+=sliderRow('wind.dir','Blows toward',0,360,1,null,60,v=>['E','SE','S','SW','W','NW','N','NE'][Math.round(v/45)%8]+' '+Math.round(v)+'°')+sliderRow('wind.power','Strength',0,1,.01,null,.6,pct)+sliderRow('wind.supply','Sand supply',0,1,.01,null,.5,pct);
+    if(k==='wind')h+=dialRow('wind.dir','Blows toward')+sliderRow('wind.power','Strength',0,1,.01,null,.6,pct)+sliderRow('wind.supply','Sand supply',0,1,.01,null,.5,pct);
     if(k==='erode')h+=sliderRow('ero.drops','Raindrops',10000,200000,5000,null,60000,v=>Math.round(v/1000)+'k')+sliderRow('ero.power','Carving',.2,2,.05,null,1)+`<div class="label">Instant</div><div class="btns"><button class="btn plain press" id="runTh">Weather slopes</button><button class="btn plain press" id="runSm">Smooth all</button><button class="btn plain press" id="runSh">Sharpen all</button></div>`+sliderRow('ero.talus','Talus angle',15,60,1,null,34,v=>Math.round(v)+'°');
+    if(['storm','tornado','quake','slide','blizzard'].includes(k))h+=sliderRow('weather.power','Intensity',0,1,.01,null,.6,pct)+(k==='tornado'||k==='blizzard'?dialRow('weather.dir','Moves toward'):'')+`<p class="hint">${{storm:'Torrential rain floods valleys and storm winds fell trees on coasts and open ground (they become fallen logs).',tornado:'A funnel crosses the map, scouring soil and flattening forest along its track.',quake:'A fault rips across the land, lifting one side; steep slopes collapse. Mask areas to protect them.',slide:'The steepest cliff collapses into a scree fan. Long-press the map → Rockslide to choose the spot.',blizzard:'Heavy snow piles on the downwind side of ridges.'}[k]}</p>`;
     h+=`<p class="tip" style="margin-top:12px">${TIPS.simulate}</p>`;
   }else if(t==='biome'){
     const T=S.scatter.types,typeAcc=k=>{const L=SCATTER_TYPES[k];return acc(L.label,tg(`scatter.types.${k}.on`,'Show')+sliderRow(`scatter.types.${k}.density`,'Density',0,1,.01,null,L.def.density,pct)+sliderRow(`scatter.types.${k}.lo`,'Lowest',0,1,.01,null,L.def.lo,pct)+sliderRow(`scatter.types.${k}.hi`,'Highest',0,1,.01,null,L.def.hi,pct)+sliderRow(`scatter.types.${k}.slope`,'Max slope',5,90,1,null,L.def.slope,v=>Math.round(v)+'°')+sliderRow(`scatter.types.${k}.size`,'Size',.5,4,.05,null,L.def.size,v=>(+v).toFixed(2)+'×')+sliderRow(`scatter.types.${k}.cluster`,'Clustering',0,1,.01,null,L.def.cluster,pct),false,`<span data-count="${k}">${fmt(scatterCounts[k]||0)}</span>`)};
     h=`${acc('Coloring',sliderRow('biome.sea','Sea level',0,.6,.005,null,null,v=>fmtLen(v*S.shape.maxH))+sliderRow('biome.beach','Beach',0,.05,.001,null,null,v=>fmtLen(v*S.shape.maxH))+sliderRow('biome.snow','Snow line',.2,1,.01,null,null,v=>v>=1?'none':fmtLen(v*S.shape.maxH))+sliderRow('biome.rock','Rock slope',.2,1.4,.01,null,null,v=>Math.round(Math.acos(1-clamp(v*.42,0,1))*180/Math.PI)+'°')+sliderRow('biome.lush','Greenery',0,1,.01,null,null,pct),true)}
     <div style="height:4px"></div>${tg('scatter.on','Trees, rocks & buildings','Instanced 3D assets placed by rules')}
-    ${['conifer','broadleaf','bush','grass','boulder'].map(typeAcc).join('')}
-    ${acc('Wooden structures',tg('scatter.types.structure.on','Show')+sliderRow('scatter.types.structure.count','Count',0,30,1,null,6)+sliderRow('scatter.types.structure.size','Size',.5,4,.05,null,1.6,v=>(+v).toFixed(2)+'×')+`<div class="btns"><button class="btn plain press" id="stReset">Auto-place again</button></div><p class="hint">${S.structs.length?S.structs.length+' placed by AI, a photo, or you. Auto-place again replaces them.':'Cabins and watchtowers settle on flat, dry ground. Long-press the map to place one yourself.'}</p>`,false,`<span data-count="structure">${scatterCounts.structure||0}</span>`)}
+    ${sliderRow('scatter.forest','Forest density',0,2,.01,null,1,v=>Math.round(v*100)+'%')}
+    ${['conifer','broadleaf','bush','grass','boulder','deadfall'].map(typeAcc).join('')}
+    ${acc('Buildings & props',tg('scatter.types.structure.on','Show')+sliderRow('scatter.types.structure.count','Count',0,30,1,null,6)+sliderRow('scatter.types.structure.size','Size',.5,4,.05,null,1.6,v=>(+v).toFixed(2)+'×')+`<div class="btns"><button class="btn plain press" id="stReset">Auto-place again</button></div><p class="hint">${S.structs.length?S.structs.length+' placed by AI, a photo, or you. Auto-place again replaces them.':'Cabins, houses and towers settle on flat, dry ground. Long-press the map to place one yourself.'}</p>`,false,`<span data-count="structure">${scatterCounts.structure||0}</span>`)}
     <p class="tip" style="margin-top:10px">${TIPS.biome}</p>`;
   }else if(t==='export'){
     const e=S.exp,T=EXPORT_TARGETS[e.target]||EXPORT_TARGETS.blender,eff={...e,...T.o},det=[[1,'Full'],[2,'Half'],[4,'Quarter'],[8,'Eighth']].filter(([s])=>(N-1)/s>=64),custom=e.target==='custom';
@@ -266,12 +292,19 @@ function bindPanel(t){
     on('pickThumb',pickPhoto);on('photoBuild',buildFromPhoto);on('photoReread',async()=>{REF.ai=null;busy(true,'Reading the image…',.3);try{await aiReadRef()}finally{busy(false)}renderSheet()});
     on('modeDD',e=>openMenu(e.currentTarget,Object.entries(PHOTO_MODES).map(([k,v])=>({v:k,label:v.n,sub:v.d})),v=>{S.photo.mode=v;if(v==='height'){S.photo.colors=false;S.photo.thin=false}else S.photo.thin=true;REF.ai=null;renderSheet();saveSoon()},S.photo.mode));
   }
+  bindDials(b);
   if(t==='sculpt'){
+    $$('[data-tcat]',b).forEach(x=>x.onclick=()=>{S.brush.cat=x.dataset.tcat;const first=TOOL_CATS[S.brush.cat].t[0];if(!TOOL_CATS[S.brush.cat].t.includes(S.tool))S.tool=first;renderSheet()});
+    on('shapeDD',e=>openMenu(e.currentTarget,Object.entries(BRUSH_SHAPES).map(([k,l])=>({v:k,label:l,sub:{soft:'Smooth falloff',sharp:'Pointed center',plateau:'Flat top, crisp edge',spray:'Speckled, natural'}[k]})),v=>{S.brush.shape=v;renderSheet();saveSoon()},S.brush.shape));
+    on('symDD',e=>openMenu(e.currentTarget,Object.entries(SYMS).map(([k,l])=>({v:k,label:l})),v=>{S.brush.sym=v;S.brush.mirror=false;renderSheet();saveSoon()},S.brush.sym));
+    on('mkClr',()=>{pushUndo();MK.fill(0);updateAll();toast('Mask cleared')});on('mkInv',()=>{pushUndo();for(let k=0;k<MK.length;k++)MK[k]=1-MK[k];updateAll();toast('Mask inverted')});
+    on('mkSlope',()=>{pushUndo();for(let j=0;j<N;j++)for(let i=0;i<N;i++)MK[j*N+i]=Math.max(MK[j*N+i],smooth(28,40,slopeDeg(i,j)));updateAll();toast('Cliffs protected','ok')});
     $$('[data-tool]',b).forEach(x=>x.onclick=()=>setTool(x.dataset.tool));
     $$('[data-stamp]',b).forEach(x=>x.onclick=()=>{S.stamp=x.dataset.stamp;$$('[data-stamp]',b).forEach(y=>y.setAttribute('aria-pressed',y===x));haptic(6)});
     $$('[data-paint]',b).forEach(x=>x.onclick=()=>{S.paint=x.dataset.paint;$$('[data-paint]',b).forEach(y=>y.setAttribute('aria-pressed',y===x));haptic(6)});
   }
   if(t==='simulate'){const k=S.sub.sim;
+    $$('[data-simk]',b).forEach(x=>x.onclick=()=>{S.sub.sim=x.dataset.simk;renderSheet('enter')});
     on('simPlay',()=>{if(SR.running&&SR.kind===k)simStop(false);else simStart(k)});
     on('simBake',()=>{if(SR.running&&SR.kind===k){simStop(true);return}const d=SIMDEF[k];if((k==='water'&&!FL.R)||(k==='lava'&&!LV.R)||(k==='snow'&&!SN.R)||(k==='wind'&&!WD.R)){toast('Run it first, then bake','warn');return}d.bake();simDoneFx(d.title+' baked into the terrain');renderSheet()});
     on('simClear',()=>{const d=SIMDEF[k];if(SR.running&&SR.kind===k)simStop(false);d.clear&&d.clear();toast(d.title+' cleared')});
@@ -313,3 +346,9 @@ function renderExportFacts(){
   f.innerHTML=`<span>Terrain</span><span>${fmt(v)} verts · ${fmt(tr)} tris</span><span>UV layout</span><span>1 island · 0 seams${e.fmt==='glb'&&e.tiles>1?` · ${e.tiles}×${e.tiles} tiles`:''}</span><span>Textures</span><span>${tex}² ${e.pbr&&e.fmt==='glb'?'color · normal · ORM':'albedo'}</span>${sc?`<span>Scatter</span><span>${fmt(Math.min(sc,QUALITY[S.quality].scatter>1?30000:16000))} objects${e.atlas?' · atlas':''}</span>`:''}<span>Units</span><span>meters · Y up</span>`;
 }
 function onScatterBuilt(){$$('[data-count]').forEach(el=>{el.textContent=fmt(scatterCounts[el.dataset.count]||0)});if(S.tab==='export')renderExportFacts()}
+
+/* ---------- rail extras: walk, clear view, queue ---------- */
+$('#walkBtn').onclick=()=>fpEnter();
+$('#clearBtn').onclick=()=>{document.body.classList.add('clear');$('#clearExit').hidden=false;placeRing(null);setViewShift(0,0);toast('Clear view · tap Show tools to bring them back')};
+$('#clearExit').onclick=()=>{document.body.classList.remove('clear');$('#clearExit').hidden=true;layoutSheet()};
+$('#queueBtn').onclick=e=>openQueue(e.currentTarget);

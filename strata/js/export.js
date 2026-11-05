@@ -98,7 +98,7 @@ function makeGLB(parts,images,materials,samplers){
     else nodes.push({name:p.name,mesh:mi,_root:1})}
   const imgs=images.map((im,i)=>({name:im.name,bufferView:addBV(im.data),mimeType:'image/png'}));
   const roots=nodes.map((n,i)=>n._root?i:-1).filter(i=>i>=0);for(const n of nodes)delete n._root;
-  const json={asset:{version:'2.0',generator:'Strata Terrain Studio'},scene:0,scenes:[{name:'Strata',nodes:roots}],nodes,meshes,materials,accessors:acc,bufferViews:bvs,buffers:[{byteLength:0}]};
+  const json={asset:{version:'2.0',generator:'Terrain Gen Studio V1'},scene:0,scenes:[{name:'Strata',nodes:roots}],nodes,meshes,materials,accessors:acc,bufferViews:bvs,buffers:[{byteLength:0}]};
   if(imgs.length){json.images=imgs;json.samplers=samplers||[{magFilter:9729,minFilter:9987,wrapS:33071,wrapT:33071},{magFilter:9728,minFilter:9728,wrapS:33071,wrapT:33071}];json.textures=images.map((im,i)=>({source:i,sampler:im.nearest?1:0}))}
   const pad=(4-off%4)%4;if(pad){chunks.push(new Uint8Array(pad));off+=pad}json.buffers[0].byteLength=off;
   let js=enc.encode(JSON.stringify(json));const jp=(4-js.length%4)%4;if(jp){const t=new Uint8Array(js.length+jp);t.set(js);t.fill(32,js.length);js=t}
@@ -150,19 +150,19 @@ function layerWeights(){
   return out;
 }
 function instanceRows(){const rows=[],q=new THREE.Quaternion(),p=new THREE.Vector3(),s=new THREE.Vector3(),e=new THREE.Euler(),m=new THREE.Matrix4();
-  for(const t of ['conifer','broadleaf','bush','grass','boulder','cabin','tower','bridge']){const mesh=SCAT[t];if(!mesh)continue;for(let i=0;i<mesh.count;i++){mesh.getMatrixAt(i,m);m.decompose(p,q,s);e.setFromQuaternion(q,'YXZ');const u=(SCATTER_TYPES[t]||SCATTER_TYPES.structure).unit;rows.push({t,x:p.x,y:p.y,z:p.z,yaw:e.y,sx:s.x/u,sy:s.y/u,sz:s.z/u})}}return rows}
-function assetPartsAtOrigin(){const out=[];for(const t of ['conifer','broadleaf','bush','grass','boulder','cabin','tower','bridge']){const g=ASSETS[t],n=g.attributes.position.count,col=new Float32Array(n*4);for(let i=0;i<n;i++){col[i*4]=g.attributes.color.array[i*3];col[i*4+1]=g.attributes.color.array[i*3+1];col[i*4+2]=g.attributes.color.array[i*3+2];col[i*4+3]=1}
-  const idx=new Uint32Array(n);for(let i=0;i<n;i++)idx[i]=i;const sc=SCATTER_TYPES[t]?SCATTER_TYPES[t].unit:SCATTER_TYPES.structure.unit,pos=new Float32Array(g.attributes.position.array.length);for(let i=0;i<pos.length;i++)pos[i]=g.attributes.position.array[i]*sc;
+  for(const t of [...TREE_KEYS,...STRUCT_KEYS]){const mesh=SCAT[t];if(!mesh)continue;for(let i=0;i<mesh.count;i++){mesh.getMatrixAt(i,m);m.decompose(p,q,s);e.setFromQuaternion(q,'YXZ');const u=(SCATTER_TYPES[parentOf(t)]||SCATTER_TYPES.structure).unit;rows.push({t,x:p.x,y:p.y,z:p.z,yaw:e.y,sx:s.x/u,sy:s.y/u,sz:s.z/u})}}return rows}
+function assetPartsAtOrigin(){const out=[];for(const t of [...TREE_KEYS,...STRUCT_KEYS]){const g=ASSETS[t],n=g.attributes.position.count,col=new Float32Array(n*4);for(let i=0;i<n;i++){col[i*4]=g.attributes.color.array[i*3];col[i*4+1]=g.attributes.color.array[i*3+1];col[i*4+2]=g.attributes.color.array[i*3+2];col[i*4+3]=1}
+  const idx=new Uint32Array(n);for(let i=0;i<n;i++)idx[i]=i;const sc=SCATTER_TYPES[parentOf(t)]?SCATTER_TYPES[parentOf(t)].unit:SCATTER_TYPES.structure.unit,pos=new Float32Array(g.attributes.position.array.length);for(let i=0;i<pos.length;i++)pos[i]=g.attributes.position.array[i]*sc;
   out.push({name:'SM_'+t[0].toUpperCase()+t.slice(1),pos,nor:g.attributes.normal.array.slice(),col,idx,mat:0})}return out}
 
 /* ---------------- main ---------------- */
 async function exportNow(){
   const e={...S.exp,...(EXPORT_TARGETS[S.exp.target]||{}).o};if(S.exp.target==='custom')Object.assign(e,S.exp);
-  const vex=S.view.vex,name=`strata-${S.name||S.preset}`.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/-+$/,'').slice(0,40)||'strata',files=[],tex=Math.min(e.tex,QUALITY[S.quality].tex);
-  busy(true,'Preparing export…',.02);
+  const vex=S.view.vex,name=`terraingen-${S.name||S.preset}`.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/-+$/,'').slice(0,40)||'terraingen',files=[],tex=Math.min(e.tex,QUALITY[S.quality].tex);
+  busy(true,'Preparing export…',.02);const EJ=job('Export for '+((EXPORT_TARGETS[S.exp.target]||{}).n||'Custom'),['Baking textures','Writing files','Compressing','Saving']);
   const onProg=p=>prog(`Baking textures… ${Math.round(p*100)}%`,p);
   try{
-    const meta={app:'Strata Terrain Studio',name:S.name,seed:S.seed,preset:S.preset,worldSizeMeters:S.shape.world,minHeightMeters:+stats.lo.toFixed(2),maxHeightMeters:+stats.hi.toFixed(2),verticalExaggeration:vex,seaLevelMeters:+seaLevel().toFixed(2),gridResolution:N};
+    const meta={app:'Terrain Gen Studio V1',name:S.name,seed:S.seed,preset:S.preset,worldSizeMeters:S.shape.world,minHeightMeters:+stats.lo.toFixed(2),maxHeightMeters:+stats.hi.toFixed(2),verticalExaggeration:vex,seaLevelMeters:+seaLevel().toFixed(2),gridResolution:N};
     const albedo=await bakeTexture(tex,onProg);
     if(e.fmt==='unreal'){
       const sizes=[127,253,505,1009,2017,4033],U=sizes.reduce((a,b)=>Math.abs(b-N)<Math.abs(a-N)?b:a),Hu=resample(H,N,U),span=(stats.hi-stats.lo)||1,v16=new Uint16Array(U*U);
@@ -216,9 +216,9 @@ async function exportNow(){
     }
     if(e.masks){prog('Writing masks…',.96);await nextFrame();files.push(...await maskFiles(name))}
     files.push({name:`${name}_info.json`,data:JSON.stringify(meta,null,2)});
-    prog('Compressing…',.99);await nextFrame();
-    await saveFile(`${name}-${S.exp.target}.zip`,zip(files));
-  }catch(err){toast('Export failed: '+(err.message||err),'warn')}
+    EJ.step(2);prog('Compressing…',.99);await nextFrame();EJ.step(3);
+    await saveFile(`${name}-${S.exp.target}.zip`,zip(files));EJ.done(name+'.zip');
+  }catch(err){EJ.fail(err.message||String(err));toast('Export failed: '+(err.message||err),'warn')}
   finally{busy(false)}
 }
 async function maskFiles(name){
