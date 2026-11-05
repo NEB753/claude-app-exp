@@ -1,7 +1,7 @@
 "use strict";
 /* Strata Fluid Gen: shallow-water "virtual pipes" simulation with sediment transport on a coarser grid (FL.R).
    Water flows downhill, pools into lakes, drains to the sea and carves the terrain when Carve > 0. */
-const FL={R:0,b:null,b0:null,d:null,s:null,fL:null,fR:null,fT:null,fB:null,u:null,v:null,wet:null,running:false,time:0,steps:0,lastSync:0,lastWater:0};
+const FL={R:0,b:null,b0:null,d:null,s:null,fL:null,fR:null,fT:null,fB:null,u:null,v:null,wet:null,time:0,steps:0,lastSync:0,lastWater:0};
 function fluidInit(){
   const R=QUALITY[S.quality].sim,n=R*R;FL.R=R;
   FL.b=resample(H,N,R);FL.b0=FL.b.slice();
@@ -66,30 +66,13 @@ function fluidWriteBack(){
 function fluidBake(){
   if(!FL.R)return;fluidWriteBack();
   const w=resample(FL.wet,FL.R,N);blurField(w,N,1);for(let k=0;k<WM.length;k++)WM[k]=Math.max(WM[k]*.5,clamp(w[k]*1.4,0,1));
-  updateAll();saveSoon();
-}
-function fluidSetRunning(on){
-  if(on&&!FL.R)fluidInit();
-  if(on&&!S.fluid.springs.length&&S.fluid.rain<=0){toast('Add rain or tap the land to place a spring first');return}
-  if(on&&!S.view.water){S.view.water=true}
-  FL.running=on;$('#simChip').hidden=!on;
-  if(!on){fluidBake();toast('Paused · rivers and wet soil baked in')}
-  if(typeof renderSheet==='function'&&S.tab==='fluid')renderSheet();touch();
-}
-function fluidTick(now){
-  if(!FL.running)return;
-  const t0=performance.now(),budget=7;let n=0;
-  while(performance.now()-t0<budget&&n<12){fluidStep();n++}
-  if(now-FL.lastWater>33){updateWater(true);FL.lastWater=now}
-  const syncEvery=N>=1025?2200:N>=513?900:450;
-  if(S.fluid.carve>0&&now-FL.lastSync>syncEvery){if(fluidWriteBack()){updateRegion(0,0,N-1,N-1);for(const a of ['position','normal','color'])geo.attributes[a].updateRange.count=-1}FL.lastSync=now}
-  $('#simText').textContent=`${fmtTime(FL.time)} simulated · ${FL.steps} steps`;touch();
+  updateAll();scatterSoon(200);saveSoon();
 }
 const fmtTime=s=>s<120?`${Math.round(s)} s`:s<7200?`${Math.round(s/60)} min`:`${(s/3600).toFixed(1)} h`;
 function addSpring(p){
   const list=S.fluid.springs,near=list.findIndex(s=>Math.hypot(s.u-p.u,s.v-p.v)<.03);
   if(near>=0){list.splice(near,1);toast('Spring removed')}else if(list.length>=16)toast('16 springs is the limit');else{list.push({u:+p.u.toFixed(4),v:+p.v.toFixed(4),rate:1});toast('Spring placed')}
-  updateSpringMarkers();saveSoon();if(S.tab==='fluid'&&typeof renderSheet==='function')renderSheet();
+  updateSpringMarkers();saveSoon();if(S.tab==='simulate'&&typeof renderSheet==='function')renderSheet();
 }
 function carvePath(points,depth,width){
   // carve a smooth downhill channel through a polyline of {u,v} points (0..1)

@@ -74,11 +74,11 @@ function evalGraph(g,R,onlyOut){
 function hashStr(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return(h>>>0).toString(36)}
 async function buildFromGraph(silent){
   const g=S.graph;if(!g)return;const out=g.nodes.find(n=>n.type==='output');if(!out){toast('Add a Terrain output node first');return}
-  if(!silent)pushUndo();
+  if(!silent)pushUndo();const old=H.slice();
   const heavy=g.nodes.some(n=>NODE_TYPES[n.type].heavy);if(heavy||N>257)busy(true,'Building terrain from nodes…',.3);await nextFrame();
   try{const f=evalGraph(g,N,true);H=new Float32Array(N*N);for(let k=0;k<f.length;k++)H[k]=f[k]*S.shape.maxH;prevMaxH=S.shape.maxH}
   finally{busy(false)}
-  S.source='nodes';S.preset='Node graph';clearLayers(true);fluidSync();updateAll();saveSoon();if(!silent)toast('Terrain built from nodes');
+  S.source='nodes';S.preset='Node graph';clearLayers(true);fluidSync();updateAll();morphFrom(old);saveSoon();if(!silent)toast('Terrain built from nodes');
 }
 
 /* ---------------- editor ---------------- */
@@ -119,9 +119,9 @@ function drawWires(){
   const g=S.graph;let h='';for(const l of g.links){const a=g.nodes.find(n=>n.id===l.from),b=g.nodes.find(n=>n.id===l.to);if(!a||!b)continue;const p=portPos(a,'out'),q=portPos(b,'in',l.port),dx=Math.max(40,Math.abs(q.x-p.x)*.5);
     h+=`<path d="M${p.x} ${p.y}C${p.x+dx} ${p.y} ${q.x-dx} ${q.y} ${q.x} ${q.y}"/>`}
   GE.svg.innerHTML=h;
-  $$('.port',GE.inner).forEach(pe=>pe.classList.remove('on','target'));
+  $$('.port',GE.inner).forEach(pe=>pe.classList.remove('on','target','src'));
   for(const l of g.links){const a=GE.inner.querySelector(`.node[data-id="${l.from}"] .port.out`),b=GE.inner.querySelector(`.node[data-id="${l.to}"] .port.in[data-port="${l.port}"]`);a&&a.classList.add('on');b&&b.classList.add('on')}
-  if(connectFrom){$$('.port.in',GE.inner).forEach(p=>p.classList.add('target'))}
+  if(connectFrom){$$('.port.in',GE.inner).forEach(p=>p.classList.add('target'));const so=GE.inner.querySelector(`.node[data-id="${connectFrom}"] .port.out`);so&&so.classList.add('src')}
 }
 function refreshGraph(){$$('.node',GE.inner).forEach(e=>e.classList.toggle('sel',e.dataset.id===S.graph.sel));drawWires();renderInspector();scheduleThumbs();scheduleAuto();saveSoon()}
 function scheduleThumbs(ms){clearTimeout(thumbT);thumbT=setTimeout(drawThumbs,ms==null?120:ms)}
@@ -143,7 +143,7 @@ function renderInspector(){
   bindSliders(box,(k,v)=>{n.p[k.slice(5)]=v;scheduleThumbs(60);scheduleAuto();saveSoon()},k=>NODE_TYPES[n.type].params[k.slice(5)].def);
   $$('[data-nopt]',box).forEach(b=>b.onclick=()=>{const k=b.dataset.nopt;openMenu(b,T.params[k].options.map(o=>({v:o,label:o})),v=>{n.p[k]=v;renderInspector();scheduleThumbs(0);scheduleAuto()},n.p[k])});
   const dup=$('#nDup');if(dup)dup.onclick=()=>{if(n.type==='output')return toast('There is only one output');const c={id:'n'+Date.now().toString(36),type:n.type,x:n.x+30,y:n.y+150,p:{...n.p}};S.graph.nodes.push(c);S.graph.sel=c.id;GE.inner.appendChild(nodeEl(c));refreshGraph()};
-  const del=$('#nDel');if(del)del.onclick=()=>{S.graph.nodes=S.graph.nodes.filter(x=>x.id!==n.id);S.graph.links=S.graph.links.filter(l=>l.from!==n.id&&l.to!==n.id);S.graph.sel=null;nodeCache.delete(n.id);GE.inner.querySelector(`.node[data-id="${n.id}"]`).remove();refreshGraph()};
+  const del=$('#nDel');if(del)del.onclick=()=>{S.graph.nodes=S.graph.nodes.filter(x=>x.id!==n.id);S.graph.links=S.graph.links.filter(l=>l.from!==n.id&&l.to!==n.id);S.graph.sel=null;nodeCache.delete(n.id);const ne=GE.inner.querySelector(`.node[data-id="${n.id}"]`);ne.classList.add('bye');setTimeout(()=>ne.remove(),200);refreshGraph()};
 }
 function bindGraphGestures(){
   const el=GE.el,pts=new Map();let drag=null,pinch=null,moved=false;

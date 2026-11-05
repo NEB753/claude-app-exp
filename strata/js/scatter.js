@@ -37,6 +37,11 @@ function assetGeos(){
     colored(new G.ConeGeometry(.62,.42,4).rotateY(Math.PI/4).translate(0,1.95,0),[82,56,40]));
   for(const [x,z] of [[-.34,-.34],[.34,-.34],[-.34,.34],[.34,.34]])tw.push(colored(new G.BoxGeometry(.05,.34,.05).translate(x,1.6,z),[110,78,50]));
   A.tower=mergeGeos(tw);
+  // bridge: unit length along X (scaled per instance), deck, rails, piers
+  const br=[colored(new G.BoxGeometry(1,.06,.22).translate(0,0,0),[128,90,58]),colored(new G.BoxGeometry(1,.1,.02).translate(0,.08,.11),[104,74,48]),colored(new G.BoxGeometry(1,.1,.02).translate(0,.08,-.11),[104,74,48])];
+  for(const x of [-.5,-.17,.17,.5])for(const z of [.1,-.1])br.push(colored(new G.BoxGeometry(.03,.14,.03).translate(x,.07,z),[96,68,44]));
+  for(const x of [-.32,0,.32])br.push(colored(new G.BoxGeometry(.05,1,.05).translate(x,-.53,.08),[86,62,42]),colored(new G.BoxGeometry(.05,1,.05).translate(x,-.53,-.08),[86,62,42]));
+  A.bridge=mergeGeos(br);
   return A;
 }
 const ASSETS=assetGeos();
@@ -52,7 +57,7 @@ function ensureScatterMeshes(){
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);m.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(max*3),3);
     m.castShadow=t!=='grass';m.receiveShadow=true;scene.add(m);SCAT[t]=m;
   }
-  for(const t of ['cabin','tower'])if(!SCAT[t]){const m=new THREE.InstancedMesh(ASSETS[t],scatterMat,60);m.count=0;m.frustumCulled=false;m.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(180),3);m.castShadow=m.receiveShadow=true;scene.add(m);SCAT[t]=m}
+  for(const t of ['cabin','tower','bridge'])if(!SCAT[t]){const m=new THREE.InstancedMesh(ASSETS[t],scatterMat,60);m.count=0;m.frustumCulled=false;m.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(180),3);m.castShadow=m.receiveShadow=true;scene.add(m);SCAT[t]=m}
 }
 let scatterT=0;
 function scatterSoon(ms){clearTimeout(scatterT);scatterT=setTimeout(buildScatter,ms==null?250:ms)}
@@ -67,15 +72,17 @@ function buildScatter(){
     const mesh=SCAT[t],cfg=S.scatter.types[t],T=SCATTER_TYPES[t];
     if(!on||!cfg.on||cfg.density<=0){mesh.count=0;scatterCounts[t]=0;return}
     const target=Math.min(mesh.userData.max,Math.round(cfg.density*T.perKm*area*q)),rng=mulberry32((S.seed*13+ti*977)>>>0),cn=makeNoise(S.seed+ti*101+7);
-    let placed=0;const tries=target*6;
+    let placed=0;const tries=target*6,ou=rng(),ov=rng(),jit=1/Math.sqrt(tries)*.8;
     for(let a=0;a<tries&&placed<target;a++){
-      const u=rng(),v=rng(),gx=u*(N-1),gy=v*(N-1),h=hAt(gx,gy);
+      const u=clamp(((ou+a*.7548776662)%1)+(rng()-.5)*jit,0,.9999),v=clamp(((ov+a*.5698402910)%1)+(rng()-.5)*jit,0,.9999),gx=u*(N-1),gy=v*(N-1),h=hAt(gx,gy);
       if(h<sea+.5)continue;
       const tn=(h-sea)/(hiT-sea);if(tn<cfg.lo||tn>cfg.hi)continue;
       const sl=slopeDeg(gx,gy);if(sl>cfg.slope)continue;
       const k=(gy|0)*N+(gx|0),wet=WM[k],m=M[k];
       let p=SM[k];
       const cl=fbm(cn,u*7,v*7,3,.5)*.5+.5;p*=lerp(1,smooth(.42,.62,cl),cfg.cluster);
+      if(PW[k]>.25){const r=PC[k*3],g=PC[k*3+1];if(!(g>r*1.12))p*=1-smooth(.25,.6,PW[k])}
+      if(t!=='bush'&&t!=='boulder')p*=1-smooth(.55,.85,wet);
       if(t==='conifer')p*=1-smooth(.5,.85,wet);
       if(t==='broadleaf')p*=lerp(.45,1.3,m)*(1-smooth(.7,.95,wet));
       if(t==='bush')p*=lerp(.6,1.2,m)+wet*.8;
@@ -83,7 +90,7 @@ function buildScatter(){
       if(t==='boulder')p*=.35+smooth(12,40,sl)*1.2;
       p*=1-smooth(.85,1,(1-cfg.hi)>0?tn/cfg.hi:0)*.6;
       if(rng()>p)continue;
-      const s=T.unit*cfg.size*(.68+rng()*.64),x=(u-.5)*W,z=(v-.5)*W,sink=t==='boulder'?.3:.08;
+      const s=T.unit*cfg.size*(.68+rng()*.64),x=(u-.5)*W,z=(v-.5)*W,sink=(t==='boulder'?.3:.06)+Math.tan(sl*Math.PI/180)*(t==='grass'?.1:.22);
       _e.set(t==='boulder'?rng()*6:(rng()-.5)*.1,rng()*6.283,t==='boulder'?rng()*6:(rng()-.5)*.1);_q.setFromEuler(_e);
       _p.set(x,h*vex-s*sink,z);_s.set(s,s*(t==='boulder'?.7+rng()*.5:1),s);_m.compose(_p,_q,_s);mesh.setMatrixAt(placed,_m);
       const br=.82+rng()*.32,dry=t==='grass'||t==='bush'?(1-m)*.22:0;_c.setRGB(br*(1+dry),br*(1+dry*.5),br*(1-dry*.4));
@@ -107,25 +114,28 @@ let structList=[];
 function placeStructures(on){
   const cfg=S.scatter.types.structure,W=S.shape.world,vex=S.view.vex;
   structList=!on||!cfg.on?[]:(S.structs.length?S.structs:autoStructs(cfg.count));
-  const counts={cabin:0,tower:0};
-  for(const st of structList){const mesh=SCAT[st.type]||SCAT.cabin,t=SCAT[st.type]?st.type:'cabin',gx=st.u*(N-1),gy=st.v*(N-1),s=SCATTER_TYPES.structure.unit*cfg.size;
+  const counts={cabin:0,tower:0,bridge:0};
+  for(const st of structList){if(st.type==='bridge'){placeBridge(st,counts,vex,W,cfg);continue}const mesh=SCAT[st.type]||SCAT.cabin,t=SCAT[st.type]?st.type:'cabin',gx=st.u*(N-1),gy=st.v*(N-1),s=SCATTER_TYPES.structure.unit*cfg.size;
     let lo=1e9;for(const [dx,dy] of [[-1,-1],[1,-1],[-1,1],[1,1],[0,0]])lo=Math.min(lo,hAt(gx+dx*s/W*(N-1)*.5,gy+dy*s/W*(N-1)*.5));
     _q.setFromEuler(_e.set(0,st.rot||0,0));_p.set((st.u-.5)*W,lo*vex-s*.05,(st.v-.5)*W);_s.set(s,s,s);_m.compose(_p,_q,_s);mesh.setMatrixAt(counts[t],_m);mesh.setColorAt(counts[t],_c.setRGB(1,1,1));counts[t]++}
-  for(const t of ['cabin','tower']){SCAT[t].count=counts[t];SCAT[t].instanceMatrix.needsUpdate=true;if(SCAT[t].instanceColor)SCAT[t].instanceColor.needsUpdate=true}
+  for(const t of ['cabin','tower','bridge']){SCAT[t].count=counts[t];SCAT[t].instanceMatrix.needsUpdate=true;if(SCAT[t].instanceColor)SCAT[t].instanceColor.needsUpdate=true}
   scatterCounts.structure=structList.length;
 }
-/* merged world-space geometry for export: trees, bushes, boulders, structures (grass skipped to keep files light) */
+/* export: one mesh per asset type plus per-instance transforms (glTF node instancing keeps files small) */
 function scatterExportParts(limit){
-  const out=[];let budget=limit||20000;
-  for(const t of ['conifer','broadleaf','bush','boulder','cabin','tower']){
+  const out=[];let budget=limit||20000;const q=new THREE.Quaternion(),p=new THREE.Vector3(),sc=new THREE.Vector3();
+  for(const t of ['conifer','broadleaf','bush','boulder','cabin','tower','bridge']){
     const mesh=SCAT[t];if(!mesh||!mesh.count||budget<=0)continue;const n=Math.min(mesh.count,budget);budget-=n;
-    const g=ASSETS[t],gp=g.attributes.position.array,gn=g.attributes.normal.array,gc=g.attributes.color.array,vc=g.attributes.position.count;
-    const pos=new Float32Array(n*vc*3),nor=new Float32Array(n*vc*3),col=new Float32Array(n*vc*4),nm=new THREE.Matrix3(),v=new THREE.Vector3(),ic=new THREE.Color();
-    for(let i=0;i<n;i++){mesh.getMatrixAt(i,_m);nm.getNormalMatrix(_m);if(mesh.instanceColor)ic.fromArray(mesh.instanceColor.array,i*3);else ic.setRGB(1,1,1);
-      for(let k=0;k<vc;k++){const o=(i*vc+k);v.fromArray(gp,k*3).applyMatrix4(_m);pos[o*3]=v.x;pos[o*3+1]=v.y;pos[o*3+2]=v.z;v.fromArray(gn,k*3).applyMatrix3(nm).normalize();nor[o*3]=v.x;nor[o*3+1]=v.y;nor[o*3+2]=v.z;
-        col[o*4]=gc[k*3]*ic.r;col[o*4+1]=gc[k*3+1]*ic.g;col[o*4+2]=gc[k*3+2]*ic.b;col[o*4+3]=1}}
-    const idx=new Uint32Array(n*vc);for(let i=0;i<idx.length;i++)idx[i]=i;
-    out.push({name:SCATTER_TYPES[t]?SCATTER_TYPES[t].label:t[0].toUpperCase()+t.slice(1),pos,nor,col,idx,count:n});
+    const g=ASSETS[t],vc=g.attributes.position.count,col=new Float32Array(vc*4);for(let i=0;i<vc;i++){col[i*4]=g.attributes.color.array[i*3];col[i*4+1]=g.attributes.color.array[i*3+1];col[i*4+2]=g.attributes.color.array[i*3+2];col[i*4+3]=1}
+    const idx=new Uint32Array(vc);for(let i=0;i<vc;i++)idx[i]=i;const inst=[];
+    for(let i=0;i<n;i++){mesh.getMatrixAt(i,_m);_m.decompose(p,q,sc);inst.push({t:[+p.x.toFixed(3),+p.y.toFixed(3),+p.z.toFixed(3)],r:[+q.x.toFixed(5),+q.y.toFixed(5),+q.z.toFixed(5),+q.w.toFixed(5)],s:[+sc.x.toFixed(3),+sc.y.toFixed(3),+sc.z.toFixed(3)]})}
+    out.push({name:SCATTER_TYPES[t]?SCATTER_TYPES[t].label:t[0].toUpperCase()+t.slice(1),pos:g.attributes.position.array.slice(),nor:g.attributes.normal.array.slice(),col,idx,instances:inst,count:n});
   }
   return out;
+}
+function placeBridge(st,counts,vex,W,cfg){
+  const m=SCAT.bridge;if(counts.bridge>=60)return;
+  const u1=st.u1??st.u-.03,v1=st.v1??st.v,u2=st.u2??st.u+.03,v2=st.v2??st.v,x1=(u1-.5)*W,z1=(v1-.5)*W,x2=(u2-.5)*W,z2=(v2-.5)*W,len=Math.hypot(x2-x1,z2-z1)||W*.02;
+  const h1=hAt(u1*(N-1),v1*(N-1)),h2=hAt(u2*(N-1),v2*(N-1)),deck=Math.max(h1,h2,seaLevel()+2)+1.2,wid=SCATTER_TYPES.structure.unit*cfg.size*.9;
+  _q.setFromEuler(_e.set(0,-Math.atan2(z2-z1,x2-x1),0));_p.set((x1+x2)/2,deck*vex,(z1+z2)/2);_s.set(len*1.08,wid*.9,wid);_m.compose(_p,_q,_s);m.setMatrixAt(counts.bridge,_m);m.setColorAt(counts.bridge,_c.setRGB(1,1,1));counts.bridge++;
 }

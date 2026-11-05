@@ -197,20 +197,33 @@ function fitSun(){
 function applyTheme(){
   const cs=getComputedStyle(document.documentElement),sky=cs.getPropertyValue('--sky-b').trim()||'#bccdd8',col=new THREE.Color(sky);
   scene.fog.color.copy(col).convertSRGBToLinear();const dark=col.getHSL({}).l<.4;hemi.intensity=dark?.25:.32;
-  ring.material.color.set(cs.getPropertyValue('--accent').trim()||'#ff7a2e');CU.uLine.value.set(dark?0xe8eef2:0x1b2228);buildEnv(dark);
+  ring.material.color.set(cs.getPropertyValue('--gold').trim()||'#d9ae4a');CU.uLine.value.set(dark?0xe8eef2:0x1b2228);buildEnv(dark);
   const tc=document.querySelector('meta[name=theme-color]');if(tc)tc.content=sky;dirty=true;
 }
 function applyQuality(){const Q=QUALITY[S.quality];renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,Q.dpr));resize();fitSun()}
 
 /* ---------------- camera ---------------- */
 const cam={theta:.75,phi:.98,r:5000,target:new THREE.Vector3()};let viewShift=0,lastLA=0;
-function frame(){const W=S.shape.world;cam.r=W*1.5;cam.target.set(0,(stats.lo+(stats.hi-stats.lo)*.25)*S.view.vex,0);cam.phi=.98;placeCamera()}
+function frame(anim){const W=S.shape.world,to={r:W*1.5,phi:.98,theta:cam.theta,tx:0,ty:(stats.lo+(stats.hi-stats.lo)*.25)*S.view.vex,tz:0};if(anim)animateCam(to,700);else{cam.r=to.r;cam.phi=to.phi;cam.target.set(to.tx,to.ty,to.tz);placeCamera()}}
+let camAnim=null;const easeIO=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+function animateCam(to,ms){const from={r:cam.r,phi:cam.phi,theta:cam.theta,tx:cam.target.x,ty:cam.target.y,tz:cam.target.z};let dt=to.theta-from.theta;dt=((dt+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;to.theta=from.theta+dt;camAnim={from,to,t0:performance.now(),ms:SET.reduceMotion?1:ms}}
+function camTick(now){if(!camAnim)return;const a=camAnim,t=clamp((now-a.t0)/a.ms,0,1),e=easeIO(t),f=a.from,o=a.to;cam.r=lerp(f.r,o.r,e);cam.phi=lerp(f.phi,o.phi,e);cam.theta=lerp(f.theta,o.theta,e);cam.target.set(lerp(f.tx,o.tx,e),lerp(f.ty,o.ty,e),lerp(f.tz,o.tz,e));placeCamera();if(t>=1)camAnim=null}
+function focusAt(p){const W=S.shape.world,h=hAt(p.gx,p.gy)*S.view.vex;animateCam({r:Math.max(W*.22,cam.r*.45),phi:Math.min(cam.phi,1.05),theta:cam.theta,tx:p.x,ty:h,tz:p.z},650)}
+/* morph: animate vertices from an old height field to the current one */
+let morph=null;
+function morphFrom(oldH){if(!oldH||oldH.length!==H.length||N>513||SET.reduceMotion)return;morph={old:oldH,t0:performance.now(),ms:520}}
+function morphTick(now){if(!morph)return;const t=clamp((now-morph.t0)/morph.ms,0,1),e=easeIO(t),pos=geo.attributes.position.array,nor=geo.attributes.normal.array,vex=S.view.vex,o=morph.old,cell=S.shape.world/(N-1);
+  const hAtM=k=>lerp(o[k],H[k],e);
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i,k3=k*3;pos[k3+1]=hAtM(k)*vex;const hl=hAtM(j*N+(i>0?i-1:i)),hr=hAtM(j*N+(i<N-1?i+1:i)),hu=hAtM((j>0?j-1:j)*N+i),hd=hAtM((j<N-1?j+1:j)*N+i);let nx=(hl-hr)*vex,ny=2*cell,nz=(hu-hd)*vex;const l=1/Math.hypot(nx,ny,nz);nor[k3]=nx*l;nor[k3+1]=ny*l;nor[k3+2]=nz*l}
+  for(const a of ['position','normal']){geo.attributes[a].updateRange.count=-1;geo.attributes[a].needsUpdate=true}dirty=true;
+  if(t>=1){morph=null;updateRegion(0,0,N-1,N-1);for(const a of ['position','normal','color'])geo.attributes[a].updateRange.count=-1}}
 function placeCamera(){
   const W=S.shape.world;cam.phi=clamp(cam.phi,.1,1.5);cam.r=clamp(cam.r,W*.04,W*4);
   cam.target.x=clamp(cam.target.x,-W*.7,W*.7);cam.target.z=clamp(cam.target.z,-W*.7,W*.7);
   const sp=Math.sin(cam.phi);camera.position.set(cam.target.x+cam.r*sp*Math.sin(cam.theta),cam.target.y+cam.r*Math.cos(cam.phi),cam.target.z+cam.r*sp*Math.cos(cam.theta));
   camera.lookAt(cam.target);camera.near=Math.max(.5,cam.r*.004);camera.far=W*10;camera.updateProjectionMatrix();
   scene.fog.near=cam.r*1.15;scene.fog.far=cam.r+W*2.6;
+  if(typeof SCAT!=='undefined'&&SCAT.grass){const v=cam.r<W*1.15;if(SCAT.grass.visible!==v)SCAT.grass.visible=v}
   const la=Math.round((cam.theta*180/Math.PI)%360);if(Math.abs(la-lastLA)>2){lastLA=la;const r=document.documentElement.style;r.setProperty('--la',(210+la)+'deg');r.setProperty('--lx',(50+Math.sin(cam.theta)*30).toFixed(0)+'%')}
   touch();
 }
@@ -239,8 +252,9 @@ function placeRing(p,rad){
   for(let q=0;q<=64;q++){const t=q/64*Math.PI*2,x=p.x+Math.cos(t)*rad,z=p.z+Math.sin(t)*rad;a[q*3]=x;a[q*3+2]=z;a[q*3+1]=hAt((x/W+.5)*(N-1),(z/W+.5)*(N-1))*vex+S.shape.maxH*.01+1}
   ringGeo.attributes.position.needsUpdate=true;ring.visible=true;dirty=true;
 }
+const ventMesh=new THREE.InstancedMesh(new THREE.SphereGeometry(1,16,10),new THREE.MeshBasicMaterial({color:new THREE.Color(2.2,.7,.15),toneMapped:false}),8);ventMesh.count=0;ventMesh.frustumCulled=false;scene.add(ventMesh);
 function updateSpringMarkers(){
-  const m=new THREE.Matrix4(),W=S.shape.world,list=S.fluid.springs,s=W*.006;springMesh.count=Math.min(list.length,16);
-  for(let i=0;i<springMesh.count;i++){const sp=list[i],h=hAt(sp.u*(N-1),sp.v*(N-1))*S.view.vex;m.makeScale(s,s,s);m.setPosition((sp.u-.5)*W,h+s,(sp.v-.5)*W);springMesh.setMatrixAt(i,m)}
-  springMesh.instanceMatrix.needsUpdate=true;dirty=true;
+  const m=new THREE.Matrix4(),W=S.shape.world,s=W*.006;
+  const put=(mesh,list,max)=>{mesh.count=Math.min(list.length,max);for(let i=0;i<mesh.count;i++){const sp=list[i],h=hAt(sp.u*(N-1),sp.v*(N-1))*S.view.vex;m.makeScale(s,s,s);m.setPosition((sp.u-.5)*W,h+s,(sp.v-.5)*W);mesh.setMatrixAt(i,m)}mesh.instanceMatrix.needsUpdate=true};
+  put(springMesh,S.fluid.springs,16);put(ventMesh,S.lava.vents,8);dirty=true;
 }

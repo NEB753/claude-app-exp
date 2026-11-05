@@ -72,14 +72,16 @@ function autoQuality(){const d=window.devicePixelRatio||1,c=navigator.hardwareCo
 const scatterDefaults=()=>{const o={};for(const k in SCATTER_TYPES)o[k]={...SCATTER_TYPES[k].def};return o};
 const DEF=()=>({v:2,preset:'Alpine',seed:4127,source:'gen',quality:autoQuality(),
   shape:{cone:0,crater:0,...PRESETS.Alpine.shape},biome:{...PRESETS.Alpine.biome},macro:{x:.6,y:.35},
-  tool:'raise',paint:'grass',stamp:'mountain',plant:'add',brush:{size:240,strength:.5,falloff:.7,mirror:false},
+  tool:'raise',paint:'grass',stamp:'mountain',plant:'add',brush:{size:240,strength:.5,falloff:.7,mirror:false,hold:false},
   ero:{drops:60000,power:1,talus:34,passes:30},
   fluid:{rain:.35,flow:.7,carve:.5,evap:.25,springs:[]},
+  lava:{rate:.6,cool:.45,fluid:.6,vents:[]},snow:{fall:.5,repose:36,melt:.35,line:.45,addHeight:false},wind:{dir:60,power:.6,supply:.5},
+  sim:{level:'medium',autoBake:true},
   scatter:{on:true,types:scatterDefaults()},structs:[],
   view:{vex:1,sunEl:34,sunAz:135,water:true,base:true,wire:false,shadows:true,contours:false,look:'natural',anim:true},
-  exp:{fmt:'glb',detail:1,base:true,depth:40,tex:2048,scatter:true,masks:true},
-  photo:{mode:'depth',height:.6,blur:2,invert:false,detail:.35,colors:false,ai:true,pin:false,scatter:true},
-  graph:null,auto:true,tab:'generate',mode:'orbit'});
+  exp:{target:'blender',fmt:'glb',detail:1,base:true,depth:40,tex:2048,scatter:true,masks:true,pbr:true,tiles:1,atlas:true},
+  photo:{mode:'depth',height:.6,blur:2,invert:false,detail:.2,colors:false,ai:true,pin:false,scatter:true,thin:true},
+  graph:null,auto:true,tab:'create',sub:{create:'generate',sim:'water'},mode:'orbit',name:'Untitled terrain'});
 let S=DEF();
 let N=257,H,M,PC,PW,SM,WM,mNoise,stats={lo:0,hi:1,water:0};
 let prevMaxH=S.shape.maxH;
@@ -164,7 +166,14 @@ function colorAt(h,ny,m,ao,pr,pg,pb,pw,wet){
 }
 
 /* ---------------- toast / busy ---------------- */
-let toastT=0;function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,2600)}
+let toastT=0;function toast(t,kind){const el=$('#toast');el.innerHTML=(kind==='ok'?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>':kind==='warn'?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>':'')+'<span></span>';el.lastChild.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,kind==='warn'?3800:2600);if(kind==='ok')haptic(12)}
+function haptic(ms){try{if(SET.haptics&&navigator.vibrate)navigator.vibrate(ms||8)}catch(e){}}
+function celebrate(){const c=$('#celebrate');if(!c||SET.reduceMotion)return;const cols=['var(--gold)','var(--gold-hi)','var(--accent-hi)','var(--blue)','#fff'];let h='';for(let i=0;i<22;i++){const a=Math.random()*6.283,d=70+Math.random()*90;h+=`<i style="background:${cols[i%5]};--x:${Math.cos(a)*d}px;--y:${Math.sin(a)*d-40}px;--r:${Math.random()*540}deg;animation-delay:${Math.random()*.08}s"></i>`}c.innerHTML=h;c.classList.remove('go');void c.offsetWidth;c.classList.add('go')}
+/* device settings (per browser), separate from the project */
+const SET_DEF={theme:'',units:'m',invertY:false,sens:1,leftHand:false,reduceMotion:false,apiKey:'',model:'claude-opus-5-5',haptics:true,hints:true};
+let SET={...SET_DEF};try{SET={...SET_DEF,...JSON.parse(localStorage.getItem('strata.settings')||'{}')}}catch(e){}
+function saveSettings(){try{localStorage.setItem('strata.settings',JSON.stringify(SET))}catch(e){}}
+const fmtLen=m=>SET.units==='ft'?fmt(m*3.28084)+' ft':fmt(m)+' m';
 function busy(on,t,p){$('#busy').hidden=!on;if(t)$('#busyText').textContent=t;$('#busyBar').style.width=((p||0)*100)+'%'}
 const prog=(t,p)=>{$('#busyText').textContent=t;$('#busyBar').style.width=(clamp(p,0,1)*100)+'%'};
 const svg=(p,w)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
