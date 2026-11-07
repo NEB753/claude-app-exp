@@ -107,12 +107,13 @@ const landscape=()=>innerWidth>innerHeight&&innerHeight<=560;
 let sheetState='half',insets={t:0,b:0};
 function measureInsets(){const p=document.createElement('div');p.style.cssText='position:fixed;left:0;top:0;width:1px;height:1px;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden';document.body.appendChild(p);const cs=getComputedStyle(p);insets={t:parseFloat(cs.paddingTop)||0,b:parseFloat(cs.paddingBottom)||0};p.remove()}
 const wide=()=>matchMedia('(min-width:900px)').matches;
-function detentH(s){const dockH=72,top=insets.t+70,avail=innerHeight-top-dockH-insets.b-26;return s==='peek'?Math.min(190,avail):s==='full'?avail:Math.min(Math.max(innerHeight*.45,300),avail)}
+const compact=()=>!document.body.classList.contains('ui-large');
+function detentH(s){const dockH=compact()?60:72,top=insets.t+(compact()?60:70),avail=innerHeight-top-dockH-insets.b-22;return s==='peek'?Math.min(compact()?156:190,avail):s==='full'?avail:Math.min(Math.max(innerHeight*.45,300),avail)}
 function layoutSheet(h){
   if(landscape()){setViewShift(0,178);return}
   if(wide()){setViewShift(0);return}
   const H_=h!=null?h:detentH(sheetState);$('#sheet').style.setProperty('--sheet-h',H_+'px');$('#bottom').style.setProperty('--sheet-h',H_+'px');
-  const topY=insets.t+66,botY=innerHeight-H_-72-insets.b-24,c=(topY+botY)/2;setViewShift(Math.max(0,innerHeight/2-c));
+  const topY=insets.t+66,botY=innerHeight-H_-(compact()?60:72)-insets.b-20,c=(topY+botY)/2;setViewShift(Math.max(0,innerHeight/2-c));
 }
 function setDetent(s){sheetState=s;document.body.classList.toggle('sheet-full',s==='full');layoutSheet();haptic(5)}
 function sheetGesture(el,allowSwipe){const sh=$('#sheet');let st=null;
@@ -163,10 +164,11 @@ for(const [id,apply] of [['hudSize',p=>{const W=S.shape.world;S.brush.size=5*Mat
 $('#viewBtn').onclick=e=>{
   const html=`<h4>Look</h4><div style="padding:0 6px 6px">${ddBtn('lookDD',LOOKS[S.view.look].n,'metal wide')}</div>
   <h4>Show</h4><div style="padding:0 8px">${tg('view.water','Water')}${tg('view.base','Diorama base')}${tg('view.shadows','Shadows')}${tg('view.contours','Contour lines','Every '+CU.uInterval.value+' m, bold every 5th')}${tg('view.anim','Moving water','Sleeps when you stop touching')}${tg('view.clouds','Drifting cloud shadows','Cheap, and pauses when idle')}${tg('view.mask','Show sculpt mask')}${tg('view.wire','Wireframe')}</div>
+  <h4>Render</h4><div style="padding:0 8px">${tg('view.post','Render mode','Anti-aliasing, color grade, depth blur on screen')}</div><div class="btns" style="padding:0 8px 8px;margin-top:2px"><button class="btn anodized press" id="vmCam">Open camera</button></div>
   <h4>Time of day</h4>${todHTML()}<div style="padding:0 8px">${dialRow('view.sunAz','Sun from')}${sliderRow('view.vex','Exaggerate',.5,3,.05,null,1,v=>(+v).toFixed(2)+'×')}</div>`;
   openPanel(e.currentTarget,html,p=>{
     $('#lookDD',p).onclick=ev=>openMenu(ev.currentTarget,Object.entries(LOOKS).map(([k,l])=>({v:k,label:l.n,sub:l.d})),v=>{setLook(v);saveSoon()},S.view.look);
-    bindToggles(p);bindSliders(p);bindDials(p);bindTod(p);
+    bindToggles(p);bindSliders(p);bindDials(p);bindTod(p);$('#vmCam',p).onclick=()=>{closePanel(true);camEnter()};
   },{width:330});
 };
 
@@ -349,6 +351,7 @@ function onScatterBuilt(){$$('[data-count]').forEach(el=>{el.textContent=fmt(sca
 
 /* ---------- rail extras: walk, clear view, queue ---------- */
 $('#walkBtn').onclick=()=>fpEnter();
+$('#camBtn').onclick=()=>camEnter();
 $('#clearBtn').onclick=()=>{document.body.classList.add('clear');$('#clearExit').hidden=false;placeRing(null);setViewShift(0,0);toast('Clear view · tap Show tools to bring them back')};
 $('#clearExit').onclick=()=>{document.body.classList.remove('clear');$('#clearExit').hidden=true;layoutSheet()};
 $('#queueBtn').onclick=e=>openQueue(e.currentTarget);

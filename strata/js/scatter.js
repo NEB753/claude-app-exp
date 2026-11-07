@@ -110,7 +110,7 @@ function buildScatter(){
       const mesh=SCAT[vk];if(used[vk]>=mesh.userData.max)continue;
       const x=(u-.5)*W,z=(v-.5)*W,sink=(t==='boulder'?.3:t==='deadfall'?.02:.06)+Math.tan(sl*Math.PI/180)*(t==='grass'||t==='deadfall'?.1:.22);
       _e.set(t==='boulder'?rng()*6:(rng()-.5)*.1,rng()*6.283,t==='boulder'?rng()*6:(rng()-.5)*.1);_q.setFromEuler(_e);
-      _p.set(x,h*vex-s*sink,z);_s.set(s,s*(t==='boulder'?.7+rng()*.5:1),s);_m.compose(_p,_q,_s);mesh.setMatrixAt(used[vk],_m);
+      _p.set(x,h*vex-s*sink,z);_s.set(s,s*(t==='boulder'?.7+rng()*.5:1),s);_m.compose(_p,_q,_s);mesh.setMatrixAt(used[vk],_m);if(!mesh.userData.off||mesh.userData.off.length<mesh.userData.max)mesh.userData.off=new Float32Array(mesh.userData.max);mesh.userData.off[used[vk]]=-s*sink;
       const br=.82+rng()*.32,dry=t==='grass'||t==='bush'?(1-m)*.22:0;_c.setRGB(br*(1+dry),br*(1+dry*.5),br*(1-dry*.4));
       if(S.biome.palette==='autumn'&&(vk==='broadleaf'||vk==='birch'||t==='bush')){const r=rng();_c.setRGB(br*(1.9+r*.6),br*(1.0+r*.3),br*.45)}
       if(S.biome.palette==='tundra'&&t!=='boulder')_c.multiplyScalar(.85);
@@ -119,9 +119,14 @@ function buildScatter(){
     scatterCounts[t]=placed;
   });
   for(const k of TREE_KEYS){const mesh=SCAT[k];mesh.count=used[k];mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true}
-  placeStructures(on);dirty=true;
+  placeStructures(on);dirty=true;shadowDirty();
   if(typeof onScatterBuilt==='function')onScatterBuilt();
 }
+/* fast path after sculpting: move existing instances onto the new ground (and hide ones now under water) instead of re-placing everything */
+function scatterReseat(){if(!H||!SCAT.conifer)return;const W=S.shape.world,vex=S.view.vex,sea=seaLevel();
+  for(const k of TREE_KEYS){const m=SCAT[k],off=m.userData.off;if(!m.count||!off)continue;const a=m.instanceMatrix.array;
+    for(let i=0;i<m.count;i++){const o=i*16,x=a[o+12],z=a[o+14],gx=(x/W+.5)*(N-1),gy=(z/W+.5)*(N-1),h=hAt(gx,gy);a[o+13]=h<sea+.4&&k!=='grass'?-1e6:h*vex+off[i]}m.instanceMatrix.needsUpdate=true}
+  placeStructures(S.scatter.on);shadowDirty();dirty=true}
 function autoStructs(count){
   const rng=mulberry32((S.seed*31+5+(S.seed2||0)*977)>>>0),W=S.shape.world,sea=seaLevel(),cands=[];
   for(let a=0;a<900;a++){const u=.06+rng()*.88,v=.06+rng()*.88,gx=u*(N-1),gy=v*(N-1),h=hAt(gx,gy);if(h<sea+2)continue;const sl=slopeDeg(gx,gy);if(sl>9)continue;cands.push({u,v,sl:sl+rng()*4})}

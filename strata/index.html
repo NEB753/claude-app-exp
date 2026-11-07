@@ -439,6 +439,127 @@ body.clear #top,body.clear #rail,body.clear #bottom,body.clear #hud,body.clear #
   body.sculpting #bottom{transform:translateX(calc(100% + 20px))}
 }
 
+
+/* ---- v1.1 compact scale (Settings → Larger controls turns it off) ---- */
+body:not(.ui-large) #top{height:44px;padding:4px;top:calc(env(safe-area-inset-top,0px) + 6px);gap:2px}
+body:not(.ui-large) .brand{height:36px;font-size:15.5px;padding:0 10px 0 6px;gap:6px}
+body:not(.ui-large) .brand .sub{font-size:11px}
+body:not(.ui-large) .ibtn{width:36px;height:36px}
+body:not(.ui-large) .ibtn svg{width:18px;height:18px}
+body:not(.ui-large) .ask{height:36px;font-size:13px;padding:0 12px 0 10px}
+body:not(.ui-large) .ask svg{width:15px;height:15px}
+body:not(.ui-large) #rail{top:calc(env(safe-area-inset-top,0px) + 58px);gap:1px;padding:3px}
+body:not(.ui-large) #rail button{width:36px;height:36px}
+body:not(.ui-large) #rail button svg{width:18px;height:18px}
+body:not(.ui-large) #rail .sep{margin:2px 7px}
+body:not(.ui-large) #hud{top:calc(env(safe-area-inset-top,0px) + 100px);padding:6px 5px;gap:6px}
+body:not(.ui-large) .vsl{width:28px;height:min(26vh,170px)}
+body:not(.ui-large) #bottom{gap:6px;bottom:calc(env(safe-area-inset-bottom,0px) + 6px);max-width:560px}
+body:not(.ui-large) #sheet{border-radius:24px}
+body:not(.ui-large) .grab{height:16px}
+body:not(.ui-large) .grab span{width:34px;height:4px}
+body:not(.ui-large) #sheetHead{min-height:38px;padding:0 12px 6px 14px}
+body:not(.ui-large) #sheetHead h2{font-size:17px}
+body:not(.ui-large) .sheet-scroll{padding:0 14px 14px}
+body:not(.ui-large) #dock{padding:4px;border-radius:22px}
+body:not(.ui-large) #dock button{padding:5px 0 4px;font-size:9.5px;gap:1px;border-radius:18px}
+body:not(.ui-large) #dock .ind{border-radius:18px}
+body:not(.ui-large) #dock button svg{width:19px;height:19px}
+body:not(.ui-large) .row{min-height:36px;grid-template-columns:minmax(70px,88px) 1fr 50px;gap:8px}
+body:not(.ui-large) .row>label{font-size:13px}
+body:not(.ui-large) .row .val{font-size:11.5px}
+body:not(.ui-large) .sl{height:28px}
+body:not(.ui-large) .sl .tr{top:12px;height:4px}
+body:not(.ui-large) .sl .th{top:6px;width:22px;height:16px;margin-left:-11px;border-radius:9px}
+body:not(.ui-large) .sl .bub{bottom:28px;font-size:11px}
+body:not(.ui-large) .acc>summary{min-height:38px;font-size:13.5px}
+body:not(.ui-large) .toggle{min-height:40px;font-size:13px}
+body:not(.ui-large) .toggle small{font-size:11.5px}
+body:not(.ui-large) .switch{width:42px;height:26px}
+body:not(.ui-large) .switch span::after{width:22px;height:22px}
+body:not(.ui-large) .switch input:checked + span::after{transform:translateX(16px)}
+body:not(.ui-large) .btn{min-height:38px;font-size:13px;padding:8px 12px;border-radius:13px;min-width:96px}
+body:not(.ui-large) .btn svg{width:16px;height:16px}
+body:not(.ui-large) .dd{height:32px;font-size:12.5px;padding:0 9px 0 12px}
+body:not(.ui-large) .dd.wide{height:36px;border-radius:12px}
+body:not(.ui-large) .seg{border-radius:12px}
+body:not(.ui-large) .seg button{padding:6px 4px;font-size:12.5px;border-radius:9px}
+body:not(.ui-large) .seg .ind{border-radius:9px}
+body:not(.ui-large) .seg.big button{padding:7px 4px;font-size:13px}
+body:not(.ui-large) .chipb{padding:6px 11px;font-size:12.5px}
+body:not(.ui-large) .tools{gap:5px}
+body:not(.ui-large) .tool{padding:7px 2px 6px;font-size:10.5px;border-radius:13px}
+body:not(.ui-large) .tool svg{width:19px;height:19px}
+body:not(.ui-large) .tip{font-size:12px}
+body:not(.ui-large) .label{font-size:9.5px;margin:10px 0 5px}
+body:not(.ui-large) .hint{font-size:11.5px}
+body:not(.ui-large) .facts{font-size:11.5px;padding:8px 10px}
+body:not(.ui-large) .prompt{border-radius:17px;padding:5px}
+body:not(.ui-large) .prompt textarea{height:34px;font-size:15px;padding:7px}
+body:not(.ui-large) .prompt button{width:34px;height:34px}
+body:not(.ui-large) .simcard{grid-template-columns:52px 1fr;padding:10px;gap:10px;border-radius:17px}
+body:not(.ui-large) .simcard .play{width:52px;height:52px}
+body:not(.ui-large) .simcard .play .ring{inset:-4px;width:60px;height:60px}
+body:not(.ui-large) .simcard h3{font-size:14px}
+body:not(.ui-large) .pop{border-radius:17px}
+body:not(.ui-large) .pop button.it{padding:9px 11px;font-size:13.5px}
+body:not(.ui-large) .padwrap{grid-template-columns:1fr 96px}
+body:not(.ui-large) .seed{height:38px}
+body:not(.ui-large) .chip{padding:6px 11px;font-size:12px}
+body:not(.ui-large) #readout,body:not(.ui-large) #simChip{top:calc(env(safe-area-inset-top,0px) + 58px)}
+body:not(.ui-large) #toast{top:calc(env(safe-area-inset-top,0px) + 58px)}
+body:not(.ui-large) .node{width:124px}
+body:not(.ui-large) .ngcard{grid-template-columns:72px 1fr}
+body:not(.ui-large) .ngcard canvas{width:72px;height:72px}
+.glass{-webkit-backdrop-filter:blur(14px) saturate(170%) brightness(1.03);backdrop-filter:blur(14px) saturate(170%) brightness(1.03)}
+.pop{-webkit-backdrop-filter:blur(18px) saturate(170%);backdrop-filter:blur(18px) saturate(170%)}
+.press{will-change:transform}
+#sheet,#bottom,#top,#rail{contain:layout style}
+/* first person v2 */
+#fpUI{pointer-events:auto;touch-action:none}
+#fpJoy{position:fixed;left:-300px;top:-300px;width:112px;height:112px;margin:-56px 0 0 -56px;border-radius:50%;background:rgba(255,255,255,.12);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.55);display:grid;place-items:center;opacity:0;transform:scale(.6);transition:opacity .18s,transform .3s var(--spring);pointer-events:none}
+#fpJoy.on{opacity:1;transform:scale(1)}
+#fpJoy i{width:44px;height:44px;border-radius:50%;background:linear-gradient(180deg,#fff,#d6ddd9);box-shadow:0 4px 14px rgba(0,0,0,.3);transition:transform .05s}
+#fpCross{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:rgba(255,255,255,.9);box-shadow:0 0 0 1.5px rgba(0,0,0,.25);pointer-events:none}
+#fpUI .fpbar{left:50%;right:auto;transform:translateX(-50%);gap:3px;padding:4px;top:calc(env(safe-area-inset-top,0px) + 8px)}
+#fpUI .fpbar button{height:32px;padding:0 11px;font-size:12px;font-weight:700;border-radius:999px;color:var(--ink-2)}
+#fpUI .fpbar button[aria-pressed="true"]{background:var(--tint-strong);color:var(--accent)}
+#fpUI .fpbar input{width:72px}
+#fpAlt{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 52px);font-family:var(--f-mono);font-size:11px;pointer-events:none}
+#fpUI .fpv{right:max(18px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 26px);gap:8px}
+#fpUI .fpv button{width:52px;height:52px;font-size:12px;font-weight:800;border-radius:50%}
+.fphint{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);left:0;right:0;text-align:center;font-size:10.5px;font-weight:700;color:rgba(255,255,255,.75);text-shadow:0 1px 2px rgba(0,0,0,.5);pointer-events:none}
+/* camera mode */
+#camUI{position:fixed;inset:0;z-index:9;pointer-events:none}
+#camUI[hidden]{display:none!important}
+#camUI .ctop{position:absolute;top:calc(env(safe-area-inset-top,0px) + 8px);left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));display:flex;gap:6px;align-items:center;pointer-events:auto}
+#camUI .cbot{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:auto}
+.camchip{height:32px;padding:0 12px;border-radius:999px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;color:var(--ink)}
+.camchip svg{width:13px;height:13px}
+.camchip[aria-pressed="true"]{color:var(--gold-lo)}
+#camLens{display:flex;gap:2px;padding:3px;border-radius:999px}
+#camLens button{width:34px;height:34px;border-radius:50%;font-size:11px;font-weight:800;color:var(--ink-2);transition:transform .3s var(--spring),background .2s}
+#camLens button[aria-pressed="true"]{background:var(--tint-strong);color:var(--gold-lo);transform:scale(1.1)}
+#camModes{display:flex;gap:20px}
+#camModes button{font-size:11.5px;font-weight:800;letter-spacing:.14em;color:rgba(255,255,255,.75);text-shadow:0 1px 3px rgba(0,0,0,.55)}
+#camModes button[aria-pressed="true"]{color:var(--gold-hi)}
+.crow{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;width:min(340px,92%)}
+#camThumb{width:44px;height:44px;border-radius:11px;background:rgba(0,0,0,.25) center/cover;border:2px solid rgba(255,255,255,.85)}
+#camThumb.pop{animation:popIn .5s var(--spring)}
+#camShutter{width:70px;height:70px;border-radius:50%;border:4px solid #fff;display:grid;place-items:center;box-shadow:0 4px 18px rgba(0,0,0,.3)}
+#camShutter::after{content:"";width:54px;height:54px;border-radius:50%;background:#fff;transition:all .35s var(--spring)}
+#camShutter.video::after{background:#e5484d}
+#camShutter.rec::after{width:24px;height:24px;border-radius:6px}
+#camShutter:active::after{transform:scale(.86)}
+#camFlash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:60}
+#camFlash.go{animation:flash .45s ease-out}
+@keyframes flash{0%{opacity:.85}100%{opacity:0}}
+#camGridLines{position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,transparent calc(33.333% - .5px),rgba(255,255,255,.45) 0,rgba(255,255,255,.45) calc(33.333% + .5px),transparent 0,transparent calc(66.666% - .5px),rgba(255,255,255,.45) 0,rgba(255,255,255,.45) calc(66.666% + .5px),transparent 0),linear-gradient(0deg,transparent calc(33.333% - .5px),rgba(255,255,255,.45) 0,rgba(255,255,255,.45) calc(33.333% + .5px),transparent 0,transparent calc(66.666% - .5px),rgba(255,255,255,.45) 0,rgba(255,255,255,.45) calc(66.666% + .5px),transparent 0)}
+#camFocus{position:absolute;left:12%;right:12%;height:40px;margin-top:-20px;pointer-events:auto;touch-action:none;border-top:1px dashed rgba(255,214,120,.85);border-bottom:1px dashed rgba(255,214,120,.85)}
+#camFocus::after{content:"FOCUS · drag";position:absolute;right:0;top:-17px;font-size:9.5px;font-weight:800;letter-spacing:.08em;color:var(--gold-hi);text-shadow:0 1px 2px rgba(0,0,0,.5)}
+#camTime{font-family:var(--f-mono);font-size:12px;color:#fff;background:#e5484d;padding:3px 9px;border-radius:7px}
+body.cammode #top,body.cammode #rail,body.cammode #bottom,body.cammode #hud,body.cammode #readout,body.cammode #simChip,body.cammode #refPin{opacity:0;pointer-events:none}
+
 </style>
 
 <canvas id="view" aria-label="3D terrain view"></canvas>
@@ -460,6 +581,7 @@ body.clear #top,body.clear #rail,body.clear #bottom,body.clear #hud,body.clear #
   <button id="modeSculpt" class="press" aria-pressed="false" aria-label="Use tool on terrain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4l6 6-9 9H5v-6z"/><path d="M12 6l6 6"/></svg></button>
   <div class="sep"></div>
   <button id="frameBtn" class="press" aria-label="Frame terrain"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+  <button id="camBtn" class="press" aria-label="Camera and render mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
   <button id="walkBtn" class="press" aria-label="Walk or fly in first person"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="2"/><path d="M10 21l2-6 3 3v4M8 12l3-4 4 2 2 3M12 8l-1 5"/></svg></button>
   <button id="clearBtn" class="press" aria-label="Clear the view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
   <button id="viewBtn" class="press" aria-label="View options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
@@ -513,9 +635,17 @@ body.clear #top,body.clear #rail,body.clear #bottom,body.clear #hud,body.clear #
 <div id="quick" aria-label="Quick actions"></div>
 <div id="pw" hidden></div>
 <section id="ng" class="glass" hidden aria-label="Node guide"></section>
-<div id="fpUI" hidden><div id="fpJoy" class="glass"><i></i></div>
-  <div class="fpbar glass"><button class="anodized press" id="fpMode">Walk</button><input type="range" id="fpSpeed" min=".3" max="4" step=".1" value="1" aria-label="Speed"><button class="metal press" id="fpExit">Exit</button></div>
-  <div class="fpv"><button class="glass press" id="fpUp" hidden aria-label="Fly up">▲</button><button class="glass press" id="fpDown" hidden aria-label="Fly down">▼</button></div></div>
+<div id="fpUI" hidden><div id="fpJoy"><i></i></div><div id="fpCross"></div>
+  <div class="fpbar glass"><button class="press" id="fpExit" aria-label="Leave first person">✕</button><button class="press" id="fpMode" aria-pressed="false">Walk</button><button class="press" id="fpRun" aria-pressed="false">Run</button><input type="range" id="fpSpeed" min=".3" max="4" step=".1" value="1" aria-label="Speed"><button class="press" id="fpCam" aria-label="Open camera here"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button></div>
+  <span id="fpAlt" class="chip glass"></span>
+  <div class="fpv"><button class="glass press" id="fpJump">Jump</button><button class="glass press" id="fpUp" hidden aria-label="Climb">▲</button><button class="glass press" id="fpDown" hidden aria-label="Dive">▼</button></div>
+  <div class="fphint">Thumb left to move · drag right to look · double-tap right to jump</div></div>
+<div id="camUI" hidden><div id="camGridLines" hidden></div><div id="camFocus" hidden></div>
+  <div class="ctop"><button class="ibtn glass press" id="camExit" aria-label="Close camera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button><span class="spacer"></span>
+    <button class="camchip glass press" id="camGrade"><span>Natural</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg></button><button class="camchip glass press" id="camAdjust">Adjust</button><button class="camchip glass press" id="camGrid" aria-pressed="false">Grid</button><button class="camchip glass press" id="camHQ" aria-pressed="true">HQ</button></div>
+  <div class="cbot"><span id="camTime" hidden>0.0 s</span><div id="camLens" class="glass"></div><div id="camModes"><button data-m="photo">PHOTO</button><button data-m="video">VIDEO</button></div>
+    <div class="crow"><button id="camThumb" aria-label="Save the last capture again"></button><button id="camShutter" aria-label="Shutter"></button><button class="camchip glass press" id="camMove" style="justify-self:end" hidden><span>Turntable</span></button></div></div></div>
+<div id="camFlash"></div>
 <button id="clearExit" class="glass press" hidden><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Show tools</button>
 <div id="menuLayer"></div>
 <div id="celebrate"></div>
@@ -541,5 +671,6 @@ body.clear #top,body.clear #rail,body.clear #bottom,body.clear #hud,body.clear #
 <script src="js/ui.js"></script>
 <script src="js/guides.js"></script>
 <script src="js/fp.js"></script>
+<script src="js/camera.js"></script>
 <script src="js/home.js"></script>
 <script src="js/main.js"></script>

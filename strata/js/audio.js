@@ -18,6 +18,7 @@ function sfx(kind){
   if(kind==='thud')return blip(140,55,.18,.18,'sine');
   if(kind==='chime'){blip(784,784,.35,.06);setTimeout(()=>blip(1175,1175,.45,.05),90);setTimeout(()=>blip(1568,1568,.5,.035),180);return}
   if(kind==='error')return blip(300,180,.18,.08,'triangle');
+  if(kind==='shutter'){const t=AU.ctx.currentTime,s=AU.ctx.createBufferSource(),f=AU.ctx.createBiquadFilter(),g=AU.ctx.createGain();s.buffer=AU.noise;f.type='highpass';f.frequency.value=1800;g.gain.setValueAtTime(.35,t);g.gain.exponentialRampToValueAtTime(.001,t+.07);s.connect(f);f.connect(g);g.connect(AU.master);s.start(t);s.stop(t+.08);setTimeout(()=>blip(900,400,.05,.06),70);return}
 }
 const LOOPS={sculpt:{f:'lowpass',hz:420,q:.8,g:.22},rain:{f:'bandpass',hz:2600,q:.6,g:.16},lava:{f:'lowpass',hz:140,q:1.2,g:.35},wind:{f:'bandpass',hz:520,q:1.4,g:.22},quake:{f:'lowpass',hz:70,q:2,g:.6},erode:{f:'bandpass',hz:1500,q:.9,g:.1}};
 function loopOn(name,level){

@@ -25,7 +25,7 @@ function onParam(k,v,commit){
     else{if(PRESETS[S.preset]&&PRESETS[S.preset].shape[f]!==S.shape[f])S.preset='Custom';regenSoon(commit)}
     renderFacts();return}
   if(g==='biome'){recolorSoon();if(f==='sea'){updateWater();scatterSoon(500)}return}
-  if(g==='view'){if(f==='vex'){updateAll();placeCamera()}else if(f==='contours')updateContourInterval();else if(f==='anim')touch();else{rebuildBase();updateWater();fitSun()}saveSoon();return}
+  if(g==='view'){if(f==='post'){postSync();fitSun();saveSoon();return}if(f==='vex'){updateAll();placeCamera()}else if(f==='contours')updateContourInterval();else if(f==='anim')touch();else{rebuildBase();updateWater();fitSun()}saveSoon();return}
   if(g==='brush'){drawHud();placeRing(hoverP);return}
   if(g==='scatter'){scatterSoon(commit?0:220);saveSoon();return}
   if(g==='exp'){if(f==='depth'){rebuildBase();updateWater()}if(['target','fmt','base'].includes(f))renderSheet();else renderExportFacts();saveSoon();return}
@@ -83,7 +83,7 @@ function beginStroke(p,e){
   applyBrush(p,1);emitDust(p,10,dustColor());loopOn('sculpt',.3);placeRing(p);showReadout(p);
   clearTimeout(sculptHideT);sculptHideT=setTimeout(()=>{if(stroke)document.body.classList.add('sculpting')},260);
 }
-function afterEdit(){if(baseDirty)rebuildBase();computeStats();updateWater();fluidSync();scatterSoon(160);saveSoon();renderFacts()}
+function afterEdit(){if(baseDirty)rebuildBase();computeStats();updateWater();fluidSync();if(['paint','plant','mask','stamp'].includes(S.tool))scatterSoon(160);else scatterReseat();saveSoon();renderFacts()}
 function endStroke(cancel){stroke=null;loopOff('sculpt');clearTimeout(sculptHideT);document.body.classList.remove('sculpting');afterEdit();if(!hoverP){placeRing(null);$('#readout').hidden=true}}
 function strokeTick(now){
   if(!stroke)return;const dt=Math.min(.05,(now-stroke.last)/1000);stroke.last=now;
@@ -132,7 +132,8 @@ function loop(now){
   if(S.view.clouds&&now-lastInteract<15000&&!document.hidden&&now-lastCloud>50){lastCloud=now;CU.uTime.value=now/1000;CU.uWorld.value=S.shape.world;dirty=true}
   const idle=now-lastInteract>15000;
   if(S.view.anim&&waterMesh&&waterMesh.visible&&!idle&&!document.hidden&&now-lastAnim>33){lastAnim=now;waterNTex.offset.x=(now*.000012)%1;waterNTex.offset.y=(now*.000007)%1;dirty=true}
-  if(dirty){dirty=false;renderer.render(scene,camera)}
+  camTickMode(now);adaptDPR(now,!!(stroke||camAnim||ptrs.size||(FP.on&&now-lastInteract<120)||(SR.running&&SR.kind!=='erode')||morph));
+  if(dirty){dirty=false;renderFrame()}
   requestAnimationFrame(loop);
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{applyTheme()});
@@ -151,4 +152,7 @@ new MutationObserver(()=>applyTheme()).observe(document.documentElement,{attribu
   requestAnimationFrame(loop);
   toast(restored?'Welcome back · '+S.name:'Drag to orbit · double-tap to zoom in · long-press for quick actions');
   if(!restored)saveProject(true).catch(()=>{});
+  postSync();
+  // installable website (not inside the Claude viewer): offline cache for the app shell
+  try{if('serviceWorker' in navigator&&window.top===window&&location.protocol==='https:'&&!/claude\.ai$/.test(location.hostname))navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){}
 })();

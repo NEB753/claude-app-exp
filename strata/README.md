@@ -25,3 +25,21 @@ A phone-first terrain studio with no build step. It uses Three.js r128 from cdnj
 - **Biome**: fir/pine, oak/birch, fallen logs and stumps, storm damage turning forest into deadfall, a forest-density control, houses, fences, wells, lamps, crates and hay bales. Trees check their whole footprint against sea, lakes and riverbeds.
 - **Nodes**: 14 more (Billow, Island mask, Crater field, Stratify, Canyons, Rivers, Flow map, Curvature, Clamp, Fold, Twist, Tilt, Sediment fill, Curve with a touch curve editor) and 4 more templates. There's an animated node guide with a live looping preview for every node.
 - **Also new**: first-person walk/fly with a joystick; a time-of-day strip and angle dials; drifting cloud shadows; and a synthesized sound engine (clicks, sculpting, rain, lava, wind, quakes).
+
+**V1.1**
+- **Compact interface**: smaller controls, tighter spacing and one consistent size scale. Settings → Larger controls brings the big version back.
+- **Performance**:
+  - Shadows are recomputed only when the land or sun changes.
+  - Resolution drops slightly while you drag and snaps back when you stop.
+  - Sculpting re-seats trees instead of re-placing them.
+  - Lighter glass blur.
+- **Haptics**: Capacitor native haptics in the test app, vibration on Android, and iOS 18+ Safari ticks via the system switch control.
+- **Test app**: `native/` is a Capacitor wrapper (see `native/README.md`); `build-web.sh` builds the installable, offline-capable PWA used by GitHub Pages.
+- **First person**: a floating thumb joystick, smoothed look, Run, Jump with gravity, head bob, a swoop-in entry and a camera shortcut.
+- **Camera & render mode**:
+  - Lenses from 0.5× to 5×.
+  - Grades: Natural, Golden hour, Cinematic, Moody, Vivid, Arctic and Noir.
+  - Tilt-shift depth blur with a draggable focus band, vignette, grain, exposure and a rule-of-thirds grid.
+  - HQ photos up to 4096 px.
+  - Videos (Turntable, Flyover, Drift) as MP4 or WebM.
+  - Render mode applies the same pipeline (with anti-aliasing) to the live view.

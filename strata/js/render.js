@@ -3,7 +3,8 @@
 const canvas=$('#view');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'high-performance'});
 renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
-renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.setClearColor(0,0);
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.shadowMap.autoUpdate=false;renderer.setClearColor(0,0);
+const shadowDirty=()=>{renderer.shadowMap.needsUpdate=true};const RQ={full:1,cur:1,low:false,idleT:0};
 const scene=new THREE.Scene();scene.fog=new THREE.Fog(0xcfdde2,1000,6000);
 const camera=new THREE.PerspectiveCamera(40,1,1,40000);
 const hemi=new THREE.HemisphereLight(0xdfeaf2,0x4a4032,.32);scene.add(hemi);
@@ -95,7 +96,7 @@ function updateRegion(i0,j0,i1,j1){
   }
   for(const a of ['position','normal','color']){const at=geo.attributes[a];at.updateRange.offset=j0*N*3;at.updateRange.count=(j1-j0+1)*N*3;at.needsUpdate=true}
   if(i0===0||j0===0||i1===N-1||j1===N-1)baseDirty=true;
-  dirty=true;
+  dirty=true;shadowDirty();
 }
 function updateAll(){
   updateRegion(0,0,N-1,N-1);for(const a of ['position','normal','color'])geo.attributes[a].updateRange.count=-1;
@@ -192,8 +193,8 @@ function fitSun(){
   sun.position.set(Math.cos(e)*Math.sin(a)*d,Math.sin(e)*d+stats.hi*.5,Math.cos(e)*Math.cos(a)*d);sun.target.position.set(0,0,0);
   c.left=c.bottom=-W*.75;c.right=c.top=W*.75;c.near=1;c.far=d*2.6;c.updateProjectionMatrix();
   const low=1-smooth(5,45,S.view.sunEl);sun.color.setRGB(1,1-.2*low,1-.42*low);sun.intensity=1.25+.8*smooth(4,30,S.view.sunEl);
-  const sh=S.view.shadows&&Q.shadow>0;
-  if(sh&&sun.shadow.mapSize.x!==Q.shadow){sun.shadow.mapSize.set(Q.shadow,Q.shadow);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}}
+  const sh=S.view.shadows&&Q.shadow>0,SZ=(typeof CAM!=='undefined'&&CAM.on&&S.cam.hq)||S.view.post?Math.max(Q.shadow,4096):Q.shadow;shadowDirty();
+  if(sh&&sun.shadow.mapSize.x!==SZ){sun.shadow.mapSize.set(SZ,SZ);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}}
   sun.castShadow=sh;terrain.receiveShadow=terrain.castShadow=sh;
   for(const m of Object.values(MATS)){m.wireframe=S.view.wire;m.needsUpdate=true}dirty=true;
 }
@@ -203,7 +204,11 @@ function applyTheme(){
   ring.material.color.set(cs.getPropertyValue('--gold').trim()||'#d9ae4a');CU.uLine.value.set(dark?0xe8eef2:0x1b2228);buildEnv(dark);
   const tc=document.querySelector('meta[name=theme-color]');if(tc)tc.content=sky;dirty=true;
 }
-function applyQuality(){const Q=QUALITY[S.quality];renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,Q.dpr));resize();fitSun()}
+function applyQuality(){const Q=QUALITY[S.quality],hq=typeof CAM!=='undefined'&&CAM.on&&S.cam.hq;RQ.full=Math.min(window.devicePixelRatio||1,Q.dpr*(hq?1.3:1));RQ.cur=RQ.full;RQ.low=false;renderer.setPixelRatio(RQ.full);resize();fitSun()}
+/* adaptive resolution: render a little softer while you drag, snap back to full sharpness 300 ms after you stop */
+function adaptDPR(now,active){if(!SET.adaptive||RQ.full<=1.3||(typeof CAM!=='undefined'&&CAM.rec))return;
+  if(active){RQ.idleT=now;if(!RQ.low){RQ.low=true;RQ.cur=Math.max(1,Math.min(RQ.full*.62,1.6));renderer.setPixelRatio(RQ.cur);renderer.setSize(innerWidth,innerHeight,false)}}
+  else if(RQ.low&&now-RQ.idleT>300){RQ.low=false;RQ.cur=RQ.full;renderer.setPixelRatio(RQ.full);renderer.setSize(innerWidth,innerHeight,false);dirty=true}}
 
 /* ---------------- camera ---------------- */
 const cam={theta:.75,phi:.98,r:5000,target:new THREE.Vector3()};let viewShift=0,viewShiftX=0,lastLA=0;
@@ -218,7 +223,7 @@ function morphFrom(oldH){if(!oldH||oldH.length!==H.length||N>513||SET.reduceMoti
 function morphTick(now){if(!morph)return;const t=clamp((now-morph.t0)/morph.ms,0,1),e=easeIO(t),pos=geo.attributes.position.array,nor=geo.attributes.normal.array,vex=S.view.vex,o=morph.old,cell=S.shape.world/(N-1);
   const hAtM=k=>lerp(o[k],H[k],e);
   for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i,k3=k*3;pos[k3+1]=hAtM(k)*vex;const hl=hAtM(j*N+(i>0?i-1:i)),hr=hAtM(j*N+(i<N-1?i+1:i)),hu=hAtM((j>0?j-1:j)*N+i),hd=hAtM((j<N-1?j+1:j)*N+i);let nx=(hl-hr)*vex,ny=2*cell,nz=(hu-hd)*vex;const l=1/Math.hypot(nx,ny,nz);nor[k3]=nx*l;nor[k3+1]=ny*l;nor[k3+2]=nz*l}
-  for(const a of ['position','normal']){geo.attributes[a].updateRange.count=-1;geo.attributes[a].needsUpdate=true}dirty=true;
+  shadowDirty();for(const a of ['position','normal']){geo.attributes[a].updateRange.count=-1;geo.attributes[a].needsUpdate=true}dirty=true;
   if(t>=1){morph=null;updateRegion(0,0,N-1,N-1);for(const a of ['position','normal','color'])geo.attributes[a].updateRange.count=-1}}
 function placeCamera(){
   const W=S.shape.world;cam.phi=clamp(cam.phi,.1,1.5);cam.r=clamp(cam.r,W*.04,W*4);

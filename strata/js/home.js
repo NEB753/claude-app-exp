@@ -12,7 +12,7 @@ function snapshot(){try{renderer.render(scene,camera);const c=document.createEle
   x.fillStyle=getComputedStyle(document.body).getPropertyValue('--sky-b')||'#bcd';x.fillRect(0,0,w,h);x.drawImage(src,(sw-w*s)/2,(sh-h*s)/2-sh*.08,w*s,h*s,0,0,w,h);return c.toDataURL('image/jpeg',.72)}catch(e){return null}}
 function packProject(){return{S:JSON.parse(JSON.stringify(S)),N,H,PC:Uint8Array.from(PC),PW:Uint8Array.from(PW,v=>v*255),SM:Uint8Array.from(SM,v=>clamp(v*100,0,255)),WM:Uint8Array.from(WM,v=>v*255),MK:Uint8Array.from(MK,v=>v*255),DF:Uint8Array.from(DF,v=>v*255)}}
 function unpackProject(d){const def=DEF(),s=d.S;
-  S={...def,...s,shape:{...def.shape,...s.shape},biome:{...def.biome,...s.biome},brush:{...def.brush,...s.brush},ero:{...def.ero,...s.ero},fluid:{...def.fluid,...s.fluid},lava:{...def.lava,...s.lava},snow:{...def.snow,...s.snow},wind:{...def.wind,...s.wind},sim:{...def.sim,...s.sim},weather:{...def.weather,...(s.weather||{})},
+  S={...def,...s,shape:{...def.shape,...s.shape},biome:{...def.biome,...s.biome},brush:{...def.brush,...s.brush},ero:{...def.ero,...s.ero},fluid:{...def.fluid,...s.fluid},lava:{...def.lava,...s.lava},snow:{...def.snow,...s.snow},wind:{...def.wind,...s.wind},sim:{...def.sim,...s.sim},weather:{...def.weather,...(s.weather||{})},cam:{...def.cam,...(s.cam||{})},
     view:{...def.view,...s.view},exp:{...def.exp,...s.exp},photo:{...def.photo,...s.photo},sub:{...def.sub,...s.sub},
     scatter:{on:s.scatter?s.scatter.on!==false:true,types:Object.fromEntries(Object.entries(scatterDefaults()).map(([k,v])=>[k,{...v,...(s.scatter&&s.scatter.types&&s.scatter.types[k])}]))}};
   if(!QUALITY[S.quality])S.quality=autoQuality();if(!['create','sculpt','simulate','biome','export'].includes(S.tab))S.tab='create';
@@ -98,7 +98,7 @@ async function renderSettings(body){
   <div class="label">Sound</div>${stg('sound','Sounds','Soft clicks, sculpting and nature ambience')}${sliderRow('snd.vol','Volume',0,1,.01,SET.volume??.6,.6,v=>Math.round(v*100)+'%')}
   <div class="label">Controls</div>
   ${sliderRow('cam.sens','Camera speed',.4,2,.05,SET.sens,1,v=>(+v).toFixed(2)+'×')}
-  ${stg('invertY','Invert vertical drag')}${stg('leftHand','Left-handed layout','Moves the camera rail to the left')}${stg('haptics','Haptic ticks','Where the device supports vibration')}${stg('hints','Show tips','Short hints when you switch modes')}
+  ${stg('invertY','Invert vertical drag')}${stg('leftHand','Left-handed layout','Moves the camera rail to the left')}${stg('haptics','Haptics',IOS?'iPhone taps via iOS 18+ Safari, or full haptics in the test app':'Vibration where the device supports it')}${stg('uiLarge','Larger controls','Bigger buttons and text')}${stg('adaptive','Adaptive resolution','Softer while dragging, sharp when still · saves battery')}${stg('hints','Show tips','Short hints when you switch modes')}
   <div class="label">AI</div>
   <p class="hint" style="margin-top:0">${mode==='claude'?'Using Claude through the app you opened this in. No key needed.':mode==='key'?'Using your Anthropic API key on this device.':'AI is off. Inside the Claude app it works automatically. On the website, add an Anthropic API key below.'}</p>
   <input class="field" id="apiKey" type="password" autocomplete="off" placeholder="sk-ant-… (stored only on this device)" value="${esc(SET.apiKey?'••••••••'+SET.apiKey.slice(-4):'')}">
@@ -124,5 +124,6 @@ async function renderSettings(body){
 }
 function applySettings(){
   const r=document.documentElement;if(SET.theme)r.dataset.theme=SET.theme;else delete r.dataset.theme;
-  document.body.classList.toggle('reduce-motion',!!SET.reduceMotion);document.body.classList.toggle('left-hand',!!SET.leftHand);
+  document.body.classList.toggle('reduce-motion',!!SET.reduceMotion);document.body.classList.toggle('left-hand',!!SET.leftHand);document.body.classList.toggle('ui-large',!!SET.uiLarge);
+  if(typeof layoutSheet==='function'&&typeof insets!=='undefined')requestAnimationFrame(()=>{layoutSheet();if(typeof dockIndicator==='function')dockIndicator()});if(typeof applyQuality==='function'&&typeof geo!=='undefined'&&geo)applyQuality();
 }
