@@ -57,3 +57,22 @@ A phone-first terrain studio with no build step. It uses Three.js r128 from cdnj
   - Brush, simulation settings and coloring start collapsed.
   - Tips are hidden unless you turn on Show tips.
 - **Fix**: ridged presets no longer generate a single NaN height cell, which caused a stray vertex. Saved creations are repaired when opened.
+
+**V1.3**
+- **Natural generation**:
+  - Gentler domain warp and rounded ridge crests.
+  - New **Weathering** step: slopes settle to the angle of repose and rain droplets carve gullies and fans, so there are no needle peaks or swirly warps. Adjust it under Fine-tune → Landform.
+  - Presets retuned.
+- **Water**:
+  - Seamless wind-wave normals with two scrolling layers at real-world scale that flatten with distance (no spirals or droplet blobs).
+  - Correct linear-space colors and depth absorption on the seabed (turquoise shallows, deep teal).
+  - Shorelines no longer flare with sun glare.
+- **Textures**: procedural tiling grass/soil and rock textures with bump detail. Rock is projected from three directions on cliffs and blended by slope; snow stays clean.
+- **Photo to terrain**, rebuilt:
+  - A local analyzer classifies every pixel (sky, water, snow, vegetation, rock, dry ground) and detects the image type.
+  - **Ground photos**: the skyline sets the far crests, the mountain face is laid out toward you, and lakes become level water at the mountain foot (reflections included). Peak height follows how tall the mountains look. The result opens from the photographer's viewpoint.
+  - **Maps and satellite images**: shading is integrated in the light direction that best agrees with land cover; water stays lowest.
+  - **Hillshades and heightmaps** are told apart automatically.
+  - Every result gets a beauty pass: detail, weathering, water kept level and below the land, and no leftover sea from the previous landscape. Trees grow only where the picture shows vegetation, never on snow.
+  - Hazy blue mountains and misty hills stay land: water needs a wide, clearly colored region with a level shoreline.
+- **Palette from the photo**: class colors are pulled into believable ranges (e.g. haze-blue rock is neutralized) and saved with the creation as "From photo".

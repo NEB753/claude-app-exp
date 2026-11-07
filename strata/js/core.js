@@ -23,7 +23,7 @@ function makeNoise(seed){
   }
 }
 function fbm(n,x,y,oct,gain){let s=0,a=1,f=1,norm=0;for(let o=0;o<oct;o++){s+=a*n(x*f+o*17.3,y*f-o*9.1);norm+=a;a*=gain;f*=2.02}return s/norm}
-function ridged(n,x,y,oct,gain){let s=0,a=1,f=1,norm=0,w=1;for(let o=0;o<oct;o++){let v=1-Math.abs(n(x*f+o*31.7,y*f+o*11.9));v*=v;v*=w;w=clamp(v*2,0,1);s+=a*v;norm+=a;a*=gain;f*=2.02}return s/norm}
+function ridged(n,x,y,oct,gain){let s=0,a=1,f=1,norm=0,w=1;for(let o=0;o<oct;o++){const nv=n(x*f+o*31.7,y*f+o*11.9);let v=1-Math.sqrt(nv*nv+.012);v*=v;v*=w;w=clamp(v*2,0,1);s+=a*v;norm+=a;a*=gain;f*=2.02}return s/norm}
 function hash2(x,y,s){let h=(Math.imul(x,374761393)+Math.imul(y,668265263)+Math.imul(s,1442695041))|0;h=Math.imul(h^(h>>>13),1274126177);h^=h>>>16;return(h>>>0)/4294967296}
 let WF1=0,WF2=0,WID=0;
 function worley(x,y,s,jit){const ix=Math.floor(x),iy=Math.floor(y);let f1=9,f2=9;
@@ -41,16 +41,16 @@ const PALETTES={
   autumn:{name:'Autumn',sand:[196,176,128],lush:[156,104,38],dry:[176,128,56],alpine:[122,98,74],rock:[118,108,98],rock2:[86,78,72],snow:[240,240,244],seabed:[110,100,80]}
 };
 const PRESETS={
-  'Alpine':{shape:{freq:2.2,oct:7,gain:.5,ridges:.72,warp:.25,peaks:1.8,island:0,terrace:0,tsteps:6,maxH:520,world:3800},biome:{palette:'temperate',sea:.06,snow:.62,rock:.55,lush:.7,beach:.01}},
-  'Archipelago':{shape:{freq:3.2,oct:6,gain:.5,ridges:.25,warp:.45,peaks:1.25,island:.85,terrace:0,tsteps:6,maxH:170,world:2600},biome:{palette:'temperate',sea:.32,snow:.97,rock:.75,lush:.85,beach:.02}},
-  'Rolling hills':{shape:{freq:1.6,oct:5,gain:.45,ridges:.1,warp:.2,peaks:1.1,island:0,terrace:0,tsteps:6,maxH:130,world:2200},biome:{palette:'temperate',sea:.04,snow:1,rock:.9,lush:.9,beach:.01}},
-  'Canyon mesas':{shape:{freq:2,oct:6,gain:.5,ridges:.3,warp:.35,peaks:1,island:0,terrace:.85,tsteps:7,maxH:240,world:2600},biome:{palette:'arid',sea:0,snow:1,rock:.45,lush:.3,beach:0}},
-  'Dune sea':{shape:{freq:4.2,oct:4,gain:.38,ridges:.9,warp:.65,peaks:1,island:0,terrace:0,tsteps:6,maxH:60,world:1400},biome:{palette:'arid',sea:0,snow:1,rock:1.2,lush:0,beach:0}},
-  'Volcano isle':{shape:{freq:3,oct:6,gain:.5,ridges:.45,warp:.2,peaks:1.25,cone:.88,crater:.55,island:.9,terrace:0,tsteps:6,maxH:760,world:2400},biome:{palette:'volcanic',sea:.22,snow:.86,rock:.5,lush:.75,beach:.012}},
-  'Frozen ridge':{shape:{freq:2.8,oct:7,gain:.52,ridges:.9,warp:.3,peaks:1.5,island:0,terrace:0,tsteps:6,maxH:480,world:3800},biome:{palette:'tundra',sea:.1,snow:.38,rock:.5,lush:.35,beach:.005}},
-  'Autumn valley':{shape:{freq:1.9,oct:6,gain:.48,ridges:.4,warp:.4,peaks:1.4,island:0,terrace:0,tsteps:6,maxH:320,world:3000},biome:{palette:'autumn',sea:.08,snow:.9,rock:.6,lush:.75,beach:.008}}
+  'Alpine':{shape:{freq:2.1,oct:7,gain:.48,ridges:.58,warp:.16,peaks:1.45,weather:.6,island:0,terrace:0,tsteps:6,maxH:520,world:3800},biome:{palette:'temperate',sea:.06,snow:.62,rock:.55,lush:.7,beach:.01}},
+  'Archipelago':{shape:{freq:3,oct:6,gain:.48,ridges:.22,warp:.3,peaks:1.2,weather:.55,island:.85,terrace:0,tsteps:6,maxH:170,world:2600},biome:{palette:'temperate',sea:.32,snow:.97,rock:.75,lush:.85,beach:.02}},
+  'Rolling hills':{shape:{freq:1.6,oct:5,gain:.44,ridges:.08,warp:.15,peaks:1.1,weather:.7,island:0,terrace:0,tsteps:6,maxH:130,world:2200},biome:{palette:'temperate',sea:.04,snow:1,rock:.9,lush:.9,beach:.01}},
+  'Canyon mesas':{shape:{freq:2,oct:6,gain:.48,ridges:.25,warp:.25,peaks:1,weather:.25,island:0,terrace:.85,tsteps:7,maxH:240,world:2600},biome:{palette:'arid',sea:0,snow:1,rock:.45,lush:.3,beach:0}},
+  'Dune sea':{shape:{freq:4,oct:4,gain:.36,ridges:.85,warp:.45,peaks:1,weather:.15,island:0,terrace:0,tsteps:6,maxH:60,world:1400},biome:{palette:'arid',sea:0,snow:1,rock:1.2,lush:0,beach:0}},
+  'Volcano isle':{shape:{freq:3,oct:6,gain:.48,ridges:.4,warp:.15,peaks:1.2,weather:.5,cone:.88,crater:.55,island:.9,terrace:0,tsteps:6,maxH:760,world:2400},biome:{palette:'volcanic',sea:.22,snow:.86,rock:.5,lush:.75,beach:.012}},
+  'Frozen ridge':{shape:{freq:2.6,oct:7,gain:.5,ridges:.75,warp:.2,peaks:1.35,weather:.5,island:0,terrace:0,tsteps:6,maxH:480,world:3800},biome:{palette:'tundra',sea:.1,snow:.38,rock:.5,lush:.35,beach:.005}},
+  'Autumn valley':{shape:{freq:1.9,oct:6,gain:.46,ridges:.35,warp:.25,peaks:1.3,weather:.65,island:0,terrace:0,tsteps:6,maxH:320,world:3000},biome:{palette:'autumn',sea:.08,snow:.9,rock:.6,lush:.75,beach:.008}}
 };
-const SHAPE_RANGES={freq:[.8,6,.05],oct:[3,8,1],gain:[.3,.65,.01],ridges:[0,1,.01],warp:[0,1,.01],peaks:[.6,3,.05],cone:[0,1,.01],crater:[0,1,.01],island:[0,1,.01],terrace:[0,1,.01],tsteps:[3,14,1],maxH:[20,1200,5],world:[400,8000,50]};
+const SHAPE_RANGES={weather:[0,1,.01],freq:[.8,6,.05],oct:[3,8,1],gain:[.3,.65,.01],ridges:[0,1,.01],warp:[0,1,.01],peaks:[.6,3,.05],cone:[0,1,.01],crater:[0,1,.01],island:[0,1,.01],terrace:[0,1,.01],tsteps:[3,14,1],maxH:[20,1200,5],world:[400,8000,50]};
 const QUALITY={
   battery:{label:'Battery saver',sub:'129² grid · 1× pixels · no shadows',res:129,dpr:1,shadow:0,scatter:.3,sim:97,tex:1024,undoMB:40},
   balanced:{label:'Balanced',sub:'257² grid · 2× pixels · soft shadows',res:257,dpr:2,shadow:2048,scatter:.7,sim:129,tex:2048,undoMB:90},
@@ -72,7 +72,7 @@ const LOOKS={natural:{n:'Natural',d:'Biome colors, soft daylight'},clay:{n:'Clay
 function autoQuality(){const d=window.devicePixelRatio||1,c=navigator.hardwareConcurrency||4;return d>=3&&c>=4?'pro':d>=2?'balanced':'battery'}
 const scatterDefaults=()=>{const o={};for(const k in SCATTER_TYPES)o[k]={...SCATTER_TYPES[k].def};return o};
 const DEF=()=>({v:2,preset:'Alpine',seed:4127,source:'gen',quality:autoQuality(),
-  shape:{cone:0,crater:0,...PRESETS.Alpine.shape},biome:{...PRESETS.Alpine.biome},macro:{x:.6,y:.35},
+  shape:{cone:0,crater:0,weather:.5,...PRESETS.Alpine.shape},biome:{...PRESETS.Alpine.biome},macro:{x:.6,y:.35},
   tool:'raise',paint:'grass',stamp:'mountain',plant:'add',brush:{size:240,strength:.5,falloff:.7,mirror:false,hold:false,shape:'soft',sym:'none',lazy:.25,cat:'shape'},maskMode:'add',
   ero:{drops:60000,power:1,talus:34,passes:30},
   fluid:{rain:.35,flow:.7,carve:.5,evap:.25,springs:[]},
@@ -82,7 +82,7 @@ const DEF=()=>({v:2,preset:'Alpine',seed:4127,source:'gen',quality:autoQuality()
   view:{vex:1,sunEl:34,sunAz:135,water:true,base:true,wire:false,shadows:true,contours:false,look:'natural',anim:true,clouds:true,mask:true,tod:.35,post:false},
   cam:{grade:'natural',vig:.3,grain:.03,tilt:0,focus:.5,expo:1,lens:1,grid:false,hq:true,mode:'photo',move:'turntable',dur:8},
   exp:{target:'blender',fmt:'glb',detail:1,base:true,depth:40,tex:2048,scatter:true,masks:true,pbr:true,tiles:1,atlas:true},
-  photo:{mode:'auto',height:.6,blur:2,invert:false,detail:.2,colors:false,ai:true,pin:false,scatter:true,thin:true,quick:true},
+  photo:{mode:'auto',height:.6,blur:2,invert:false,detail:.35,colors:false,palette:true,ai:true,pin:false,scatter:true,thin:true,quick:true},
   graph:null,auto:true,tab:'create',sub:{create:'generate',sim:'water'},mode:'orbit',name:'Untitled terrain'});
 const VARIANTS={conifer:['conifer','pine'],broadleaf:['broadleaf','birch'],deadfall:['log','stump']};
 let S=DEF();
@@ -94,7 +94,7 @@ function genField(R,sh,seed){
   const n=makeNoise(seed),n2=makeNoise(seed*7+13),out=new Float32Array(R*R),oct=octCap(sh.oct,R,sh.freq);let lo=1e9,hi=-1e9;
   for(let j=0;j<R;j++)for(let i=0;i<R;i++){
     const x=i/(R-1)*sh.freq,y=j/(R-1)*sh.freq;let wx=0,wy=0;
-    if(sh.warp>0){wx=fbm(n2,x+5.2,y+1.3,4,.5)*sh.warp*1.6;wy=fbm(n2,x-3.7,y+8.1,4,.5)*sh.warp*1.6}
+    if(sh.warp>0){wx=fbm(n2,x+5.2,y+1.3,3,.45)*sh.warp*.85;wy=fbm(n2,x-3.7,y+8.1,3,.45)*sh.warp*.85}
     const a=fbm(n,x+wx,y+wy,oct,sh.gain)*.5+.5,b=sh.ridges>0?ridged(n,x+wx+3.3,y+wy-7.7,oct,sh.gain):0,h=lerp(a,b,sh.ridges);
     out[j*R+i]=h;if(h<lo)lo=h;if(h>hi)hi=h;
   }
@@ -108,7 +108,19 @@ function genField(R,sh,seed){
     if(sh.terrace>0){const t=h*st,k0=Math.floor(t),f=t-k0,f2=smooth(.55,.95,f)*.85+f*.15;h=lerp(h,(k0+f2)/st,sh.terrace)}
     out[k]=Math.max(0,h);
   }
+  weatherField(out,R,sh,seed);
   return out;
+}
+/* Natural weathering after noise: thermal passes cap slopes near the angle of repose (no needle peaks), then
+   rain droplets carve gullies and lay down fans. Scales with resolution so previews match the full map. */
+function weatherField(f,R,sh,seed){
+  const wt=sh.weather??.5;if(wt<=0||typeof thermalPass!=='function')return f;
+  const cell=(sh.world||3000)/(R-1),mh=Math.max(20,sh.maxH||400),tal=Math.tan((52-16*wt)*Math.PI/180)*cell/mh,P=Math.round(3+9*wt);
+  for(let p=0;p<P;p++)thermalPass(f,R,tal);
+  const drops=Math.min(140000,Math.round(R*R*.32*wt));if(drops>50)erodeDroplets(f,R,drops,.7+.5*wt,mulberry32((seed*13+R)|0),null,1);
+  let hi=0;for(let k=0;k<f.length;k++){if(!(f[k]>0))f[k]=0;if(f[k]>hi)hi=f[k]}
+  if(hi>0&&hi<1){const g=1/hi;for(let k=0;k<f.length;k++)f[k]*=g}/* keep the tallest peak at Max height */
+  return f;
 }
 function blurField(f,R,passes){if(passes<=0)return f;let a=f,b=new Float32Array(f.length);
   for(let p=0;p<passes;p++){
@@ -152,8 +164,9 @@ function colorAt(h,ny,m,ao,pr,pg,pb,pw,wet){
     C3[0]=lerp(A[0],B[0],f)*ao;C3[1]=lerp(A[1],B[1],f)*ao;C3[2]=lerp(A[2],B[2],f)*ao;return C3}
   const P=PALETTES[b.palette];
   if(sea>0&&hn<sea){
-    const dep=clamp((sea-hn)/Math.max(sea,.01),0,1),t=smooth(0,.35,dep),dk=1-.45*dep;
-    r=lerp(P.sand[0],P.seabed[0],t)*dk;g=lerp(P.sand[1],P.seabed[1],t)*dk;bl=lerp(P.sand[2],P.seabed[2],t)*dk;
+    /* seabed seen through water: red light is absorbed first, so shallows turn turquoise and depth goes dark teal */
+    const dm=(sea-hn)*maxH,t=smooth(0,5,dm),ar=Math.exp(-dm*.22)*.62+.18,ag=Math.exp(-dm*.08)*.5+.38,ab=Math.exp(-dm*.05)*.4+.5;
+    r=lerp(P.sand[0],P.seabed[0],t)*ar;g=lerp(P.sand[1],P.seabed[1],t)*ag;bl=lerp(P.sand[2],P.seabed[2],t)*ab;
   }else{
     const t=sea>=1?0:clamp((hn-sea)/(1-sea),0,1),wetn=clamp(b.lush*(.55+.9*m)-t*.8+wet*.5,0,1);
     r=lerp(P.dry[0],P.lush[0],wetn);g=lerp(P.dry[1],P.lush[1],wetn);bl=lerp(P.dry[2],P.lush[2],wetn);

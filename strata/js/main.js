@@ -8,7 +8,7 @@ function regenSoon(commit){
   regenT=setTimeout(()=>{const old=H.slice();genHeights();genMoist();clearLayers(false);S.structs=[];fluidSync();updateAll();if(commit)morphFrom(old);saveSoon();drawPreview()},N>257?0:90);
 }
 function recolorSoon(){if(recolorQ)return;recolorQ=true;requestAnimationFrame(()=>{recolorQ=false;updateAll();renderFacts();saveSoon()})}
-function applyPreset(name){const p=PRESETS[name];if(!p)return false;pushUndo();S.preset=name;S.shape={cone:0,crater:0,...p.shape};S.biome={...p.biome};S.macro={x:clamp(p.shape.ridges/.9,0,1),y:clamp((p.shape.warp-.12)/.55,0,1)};regenerate(false);frame(true);renderSheet();return true}
+function applyPreset(name){const p=PRESETS[name];if(!p)return false;pushUndo();S.preset=name;S.shape={cone:0,crater:0,weather:.5,...p.shape};S.biome={...p.biome};S.macro={x:clamp(p.shape.ridges/.9,0,1),y:clamp((p.shape.warp-.12)/.55,0,1)};regenerate(false);frame(true);renderSheet();return true}
 function setRes(r){if(r===N)return;pushUndo();H=resample(H,N,r);PC=resample(PC,N,r,3);PW=resample(PW,N,r);SM=resample(SM,N,r);WM=resample(WM,N,r);MK=resample(MK,N,r);DF=resample(DF,N,r);N=r;genMoist();buildGeometry();terrain.material=MATS[S.view.look]||MATS.natural;fluidSync();updateAll()}
 async function setQuality(q){
   if(!QUALITY[q]||q===S.quality)return;S.quality=q;const Q=QUALITY[q];
@@ -131,7 +131,7 @@ function loop(now){
   camTick(now);morphTick(now);strokeTick(now);simTick(now);fpTick(dt);dustTick(dt);CU.uClouds.value=S.view.clouds?1:0;
   if(S.view.clouds&&now-lastInteract<15000&&!document.hidden&&now-lastCloud>50){lastCloud=now;CU.uTime.value=now/1000;CU.uWorld.value=S.shape.world;dirty=true}
   const idle=now-lastInteract>15000;
-  if(S.view.anim&&waterMesh&&waterMesh.visible&&!idle&&!document.hidden&&now-lastAnim>33){lastAnim=now;waterNTex.offset.x=(now*.000012)%1;waterNTex.offset.y=(now*.000007)%1;dirty=true}
+  if(S.view.anim&&waterMesh&&waterMesh.visible&&!idle&&!document.hidden&&now-lastAnim>33){lastAnim=now;const tt=now/1000;WU.uWO1.value.set((tt*.011)%1,(tt*.006)%1);WU.uWO2.value.set((-tt*.017)%1,(tt*.013)%1);dirty=true}
   camTickMode(now);adaptDPR(now,!!(stroke||camAnim||ptrs.size||(FP.on&&now-lastInteract<120)||(SR.running&&SR.kind!=='erode')||morph));
   if(dirty){dirty=false;renderFrame()}
   requestAnimationFrame(loop);

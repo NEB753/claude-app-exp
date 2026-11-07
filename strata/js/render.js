@@ -31,25 +31,57 @@ function detailTexture(){
   for(let i=0;i<a.length;i++){const v=Math.round(255*clamp(.9+(a[i]-.5)*.55+(rnd()-.5)*.05,0,1));img.data[i*4]=img.data[i*4+1]=img.data[i*4+2]=v;img.data[i*4+3]=255}
   x.putImageData(img,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(30,30);t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());return t;
 }
+/* Water normals: a sum of wind-driven sine waves with integer wave vectors, so the tile repeats seamlessly with no
+   swirl or blob artifacts. Two copies scroll in different directions at different scales in the shader. */
 function waterNormalTexture(){
-  const T=256,c=document.createElement('canvas');c.width=c.height=T;const x=c.getContext('2d'),img=x.createImageData(T,T),n=makeNoise(5),h=new Float32Array(T*T);
-  const per=(i,j,f)=>{const a=i/T*Math.PI*2,b=j/T*Math.PI*2;return n(Math.cos(a)*f+9,Math.sin(a)*f+Math.cos(b)*f*.7+Math.sin(b)*f*.7)};
-  for(let j=0;j<T;j++)for(let i=0;i<T;i++)h[j*T+i]=per(i,j,1.6)*.6+per(i,j,3.4)*.3+per(i,j,7)*.15;
-  for(let j=0;j<T;j++)for(let i=0;i<T;i++){const dx=h[j*T+(i+1)%T]-h[j*T+(i+T-1)%T],dy=h[((j+1)%T)*T+i]-h[((j+T-1)%T)*T+i],o=(j*T+i)*4;
-    img.data[o]=clamp(128-dx*180,0,255);img.data[o+1]=clamp(128-dy*180,0,255);img.data[o+2]=255;img.data[o+3]=255}
-  x.putImageData(img,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(10,10);return t;
+  const T=256,c=document.createElement('canvas');c.width=c.height=T;const x=c.getContext('2d'),img=x.createImageData(T,T),gx=new Float32Array(T*T),gy=new Float32Array(T*T),rnd=mulberry32(11),W=[];
+  for(let q=0;q<40;q++){const ang=.35+(rnd()-.5)*(q<12?1.1:2.6),f=2+Math.floor(Math.pow(rnd(),1.6)*18),kx=Math.round(Math.cos(ang)*f),ky=Math.round(Math.sin(ang)*f);if(!kx&&!ky)continue;const k=Math.hypot(kx,ky);W.push([kx,ky,1/Math.pow(k,1.25),rnd()*6.283])}
+  for(let j=0;j<T;j++)for(let i=0;i<T;i++){let dx=0,dy=0;const u=i/T*6.283,v=j/T*6.283;
+    for(const [kx,ky,a,ph] of W){const t=kx*u+ky*v+ph,c1=Math.cos(t),s1=Math.sin(t);const sh=c1*a*(1+.35*s1);dx+=kx*sh;dy+=ky*sh}
+    gx[j*T+i]=dx;gy[j*T+i]=dy}
+  let m=0;for(let k=0;k<gx.length;k++)m=Math.max(m,Math.abs(gx[k]),Math.abs(gy[k]));const sc=1/(m||1);
+  for(let k=0;k<gx.length;k++){const o=k*4,nx=-gx[k]*sc*.9,ny=-gy[k]*sc*.9,nz=Math.sqrt(Math.max(.05,1-nx*nx-ny*ny));img.data[o]=128+nx*127;img.data[o+1]=128+ny*127;img.data[o+2]=128+nz*127;img.data[o+3]=255}
+  x.putImageData(img,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());return t;
 }
 const detailTex=detailTexture(),waterNTex=waterNormalTexture();
+/* ---- tileable procedural material textures (no downloads) ----
+   pvn: value noise on a lattice that wraps every P cells, so every texture tiles without seams. */
+function pvn(x,y,P,s){const xi=Math.floor(x),yi=Math.floor(y),fx=x-xi,fy=y-yi,u=fx*fx*(3-2*fx),v=fy*fy*(3-2*fy),m=a=>((a%P)+P)%P,h=(a,b)=>hash2(m(a),m(b),s);
+  return lerp(lerp(h(xi,yi),h(xi+1,yi),u),lerp(h(xi,yi+1),h(xi+1,yi+1),u),v)}
+function pfbm(x,y,P,s,oct,g){let t=0,a=1,n=0,f=1;for(let o=0;o<oct;o++){t+=a*pvn(x*f,y*f,P*f,s+o*101);n+=a;a*=g||.5;f*=2}return t/n}
+function texOut(T,fn){const c=document.createElement('canvas');c.width=c.height=T;const x=c.getContext('2d'),img=x.createImageData(T,T),d=img.data;
+  for(let j=0;j<T;j++)for(let i=0;i<T;i++){const r=fn(i/T,j/T),o=(j*T+i)*4;d[o]=clamp(r[0]*255,0,255);d[o+1]=clamp(r[1]*255,0,255);d[o+2]=clamp(r[2]*255,0,255);d[o+3]=clamp(r[3]*255,0,255)}
+  x.putImageData(img,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());return t}
+/* ground: grass clumps, soil patches, pebbles; rgb are color multipliers around 0.5, alpha is micro height */
+function groundTexture(T){return texOut(T,(u,v)=>{
+  const cl=pfbm(u*8,v*8,8,3,4,.55),fine=pfbm(u*64,v*64,64,7,2,.5),soil=smooth(.56,.7,pfbm(u*4,v*4,4,11,3,.5)),peb=smooth(.8,.9,pvn(u*96,v*96,96,17));
+  const L=.4+cl*.16+fine*.06-soil*.05+peb*.04,g=1+(cl-.5)*.14-soil*.1;
+  return[L*(1+soil*.14),L*g,L*(1-soil*.1)*.98,clamp(cl*.7+fine*.1+peb*.2-soil*.1,0,1)]})}
+/* rock: warped strata bands, cracks and grit; neutral multipliers, alpha is height for bump */
+function rockTexture(T){return texOut(T,(u,v)=>{
+  const w=pfbm(u*4,v*4,4,21,3,.5),band=.5+.5*Math.sin((v*10+w*1.6)*Math.PI*2),grit=pfbm(u*24,v*24,24,23,2,.5),ck=Math.abs(pfbm(u*12,v*12,12,29,3,.5)-.5),crack=1-smooth(0,.035,ck),blk=pfbm(u*6,v*6,6,31,2,.5);
+  const L=.4+band*.06+grit*.07+blk*.1-crack*.16;
+  return[L*1.02,L,L*.97,clamp(.3+band*.3+blk*.3+grit*.08-crack*.4,0,1)]})}
 /* contour-line injection shared by every terrain look */
-function cloudTexture(){const T=128,c=document.createElement('canvas');c.width=c.height=T;const x=c.getContext('2d'),img=x.createImageData(T,T),n=makeNoise(77);
-  for(let j=0;j<T;j++)for(let i=0;i<T;i++){const a=i/T*Math.PI*2,b=j/T*Math.PI*2,v=n(Math.cos(a)*1.3+5,Math.sin(a)*1.3+Math.cos(b)*1.3)*.6+n(Math.cos(a)*2.6,Math.sin(b)*2.6+Math.sin(a)*2.6)*.4,o=(j*T+i)*4;img.data[o]=img.data[o+1]=img.data[o+2]=clamp(128+v*170,0,255);img.data[o+3]=255}
-  x.putImageData(img,0,0);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t}
-const CU={uContour:{value:0},uInterval:{value:25},uLine:{value:new THREE.Color(0x1b2228)},uTime:{value:0},uClouds:{value:1},uCloudTex:{value:cloudTexture()},uWorld:{value:3000}};
-function withContours(mat){
+function cloudTexture(){return texOut(128,(u,v)=>{const c=pfbm(u*3,v*3,3,77,4,.5);return[c,c,c,1]})}
+const DT=QUALITY[S.quality]&&QUALITY[S.quality].res<=129?256:512;
+const CU={uGround:{value:groundTexture(DT)},uRock:{value:rockTexture(DT)},uDetail:{value:1},uContour:{value:0},uInterval:{value:25},uLine:{value:new THREE.Color(0x1b2228)},uTime:{value:0},uClouds:{value:1},uCloudTex:{value:cloudTexture()},uWorld:{value:3000}};
+const DETAIL_GLSL=`uniform sampler2D uGround;uniform sampler2D uRock;uniform float uDetail;varying vec3 vWN;float dH=.5;
+vec3 perturbD(vec3 p,vec3 n,float h,float k){vec3 dpx=dFdx(p),dpy=dFdy(p);vec3 r1=cross(dpy,n),r2=cross(n,dpx);float det=dot(dpx,r1);vec2 g=vec2(dFdx(h),dFdy(h))*k;vec3 gr=sign(det)*(g.x*r1+g.y*r2);return normalize(abs(det)*n-gr);}
+`;
+const DETAIL_MAP=`{vec3 wp=vec3(vWXZ.x,vWY,vWXZ.y);vec3 an=abs(normalize(vWN));an=pow(an,vec3(4.));an/=an.x+an.y+an.z;
+  float slope=1.-clamp(normalize(vWN).y,0.,1.);float rk=smoothstep(.28,.5,slope);
+  vec4 g1=texture2D(uGround,wp.xz/26.),g2=texture2D(uGround,wp.xz/181.+.37);
+  vec4 r=texture2D(uRock,wp.zy/38.)*an.x+texture2D(uRock,wp.xz/38.)*an.y+texture2D(uRock,wp.xy/38.)*an.z;
+  vec4 d=mix(g1*mix(.85,1.15,g2.r*2.-.5),r,rk);float far=1.-smoothstep(uWorld*.45,uWorld*1.6,length(vViewPosition));
+  float lum=dot(diffuseColor.rgb,vec3(.3,.59,.11));float k=uDetail*far*(1.-smoothstep(.55,.85,lum)*.65);
+  diffuseColor.rgb*=mix(vec3(1.),d.rgb*2.,k);dH=mix(.5,d.a,k);}`;
+function withContours(mat,detail){
   mat.extensions={derivatives:true};
   mat.onBeforeCompile=sh=>{
     Object.assign(sh.uniforms,CU);
-    sh.vertexShader='varying float vWY;varying vec2 vWXZ;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvec4 wpS=modelMatrix*vec4(transformed,1.0);vWY=wpS.y;vWXZ=wpS.xz;');
+    sh.vertexShader='varying float vWY;varying vec2 vWXZ;varying vec3 vWN;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvec4 wpS=modelMatrix*vec4(transformed,1.0);vWY=wpS.y;vWXZ=wpS.xz;vWN=mat3(modelMatrix)*objectNormal;');
+    if(detail)sh.fragmentShader=DETAIL_GLSL+sh.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\n'+DETAIL_MAP).replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\nnormal=perturbD(-vViewPosition,normal,dH,.7*uDetail);');
     sh.fragmentShader='varying float vWY;varying vec2 vWXZ;uniform float uContour;uniform float uInterval;uniform vec3 uLine;uniform float uTime;uniform float uClouds;uniform sampler2D uCloudTex;uniform float uWorld;\n'+sh.fragmentShader.replace('#include <fog_fragment>',
       `if(uContour>.5){float c=vWY/uInterval;float w=max(fwidth(c),1e-4);float f=abs(fract(c-.5)-.5)/w;float ln=1.-min(f,1.);float idx=floor(c+.5);float maj=1.-step(.01,abs(mod(idx,5.)));gl_FragColor.rgb=mix(gl_FragColor.rgb,uLine,ln*mix(.32,.72,maj));}if(uClouds>.5){float cl=texture2D(uCloudTex,vWXZ/uWorld*1.15+vec2(uTime*.0045,uTime*.0028)).r;gl_FragColor.rgb*=mix(1.,.74,smoothstep(.56,.78,cl));}
 #include <fog_fragment>`);
@@ -57,14 +89,21 @@ function withContours(mat){
   return mat;
 }
 const MATS={
-  natural:withContours(new THREE.MeshStandardMaterial({vertexColors:true,map:detailTex,roughness:.9,metalness:0,envMapIntensity:.55})),
+  natural:withContours(new THREE.MeshStandardMaterial({vertexColors:true,roughness:.92,metalness:0,envMapIntensity:.55}),true),
   clay:withContours(new THREE.MeshStandardMaterial({color:new THREE.Color(0xcdbca9).convertSRGBToLinear(),roughness:.95,metalness:0,envMapIntensity:.5})),
   titanium:withContours(new THREE.MeshStandardMaterial({color:new THREE.Color(0xd5d9de).convertSRGBToLinear(),map:detailTex,roughness:.3,metalness:1,envMapIntensity:1.15})),
   copper:withContours(new THREE.MeshStandardMaterial({color:new THREE.Color(0xe08a55).convertSRGBToLinear(),map:detailTex,roughness:.34,metalness:1,envMapIntensity:1.1})),
   heat:withContours(new THREE.MeshStandardMaterial({vertexColors:true,roughness:.8,metalness:0,envMapIntensity:.5}))
 };
 const baseMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,metalness:0,envMapIntensity:.4});
-const waterMat=new THREE.MeshStandardMaterial({vertexColors:true,transparent:true,roughness:.05,metalness:0,normalMap:waterNTex,normalScale:new THREE.Vector2(.35,.35),envMapIntensity:1.25,depthWrite:false});
+const waterMat=new THREE.MeshStandardMaterial({vertexColors:true,transparent:true,roughness:.1,metalness:0,normalMap:waterNTex,normalScale:new THREE.Vector2(.22,.22),envMapIntensity:.85,depthWrite:false});
+/* two scrolling wave layers at real-world scale, flattened with distance so far water reads as a calm sheet */
+const WU={uWS1:{value:new THREE.Vector2(30,30)},uWS2:{value:new THREE.Vector2(75,75)},uWO1:{value:new THREE.Vector2()},uWO2:{value:new THREE.Vector2()},uWFade:{value:2500}};
+waterMat.onBeforeCompile=sh=>{Object.assign(sh.uniforms,WU);
+  sh.fragmentShader='uniform vec2 uWS1;uniform vec2 uWS2;uniform vec2 uWO1;uniform vec2 uWO2;uniform float uWFade;\n'+sh.fragmentShader.replace('#include <normal_fragment_maps>',THREE.ShaderChunk.normal_fragment_maps.replace(
+    'vec3 mapN = texture2D( normalMap, vUv ).xyz * 2.0 - 1.0;',
+    'vec3 n1=texture2D(normalMap,vUv*uWS1+uWO1).xyz*2.-1.;vec3 n2=texture2D(normalMap,vUv*uWS2+uWO2).xyz*2.-1.;vec3 mapN=normalize(vec3(n1.xy*.65+n2.xy*.45,n1.z*n2.z));mapN.xy*=clamp(1.-length(vViewPosition)/uWFade,.12,1.);'))};
+function waterScale(){const W=S.shape.world;WU.uWS1.value.set(W/140,W/140);WU.uWS2.value.set(W/52,W/52);WU.uWFade.value=Math.max(900,W*.9)}
 let geo,terrain,baseMesh,waterMesh,waterWall;
 const wallMat=new THREE.MeshStandardMaterial({vertexColors:true,transparent:true,roughness:.1,depthWrite:false,side:THREE.DoubleSide});
 const ringGeo=new THREE.BufferGeometry();ringGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(65*3),3));
@@ -152,9 +191,9 @@ function buildWater(R){
   g.setAttribute('uv',new THREE.BufferAttribute(uv,2));g.setIndex(new THREE.BufferAttribute(idx,1));
   waterMesh=new THREE.Mesh(g,waterMat);waterMesh.renderOrder=2;waterMesh.frustumCulled=false;waterMesh.receiveShadow=true;scene.add(waterMesh);
 }
-const WSH=[.42,.78,.80],WDP=[.03,.20,.30],WFOAM=[.92,.97,1];
+const WSH=[.035,.17,.17],WDP=[.004,.032,.06],WFOAM=[.62,.7,.72];/* linear-space colors */
 function updateWater(fast){
-  const R=(typeof FL!=='undefined'&&FL.R)?FL.R:QUALITY[S.quality].sim;if(R!==WR)buildWater(R);
+  const R=(typeof FL!=='undefined'&&FL.R)?FL.R:QUALITY[S.quality].sim;if(R!==WR)buildWater(R);waterScale();
   const show=S.view.water;waterMesh.visible=show;if(!show){if(waterWall)waterWall.visible=false;dirty=true;return}
   const pos=waterMesh.geometry.attributes.position.array,col=waterMesh.geometry.attributes.color.array,nor=waterMesh.geometry.attributes.normal.array,W=S.shape.world,vex=S.view.vex,sea=seaLevel(),fd=(typeof FL!=='undefined'&&FL.d&&FL.R===R)?FL.d:null;
   let any=false;
@@ -164,13 +203,14 @@ function updateWater(fast){
     const wet=depth>.03;if(wet)any=true;
     pos[k*3]=(i/(R-1)-.5)*W;pos[k*3+1]=(wet?tb+depth:tb-2)*vex;pos[k*3+2]=(j/(R-1)-.5)*W;
     nor[k*3]=0;nor[k*3+1]=1;nor[k*3+2]=0;
-    const t=smooth(0,18,depth),foam=1-smooth(.03,.6,depth);
+    const t=smooth(0,22,depth),foam=(1-smooth(.03,.35,depth))*.3;
     col[k*4]=lerp(lerp(WSH[0],WDP[0],t),WFOAM[0],foam*.6);col[k*4+1]=lerp(lerp(WSH[1],WDP[1],t),WFOAM[1],foam*.6);col[k*4+2]=lerp(lerp(WSH[2],WDP[2],t),WFOAM[2],foam*.6);
-    col[k*4+3]=wet?clamp(.35+smooth(.03,3,depth)*.55+foam*.1,0,.93):0;
+    col[k*4+3]=wet?clamp(.42+smooth(.03,4,depth)*.5+foam*.1,0,.94):0;
   }
   const gA=waterMesh.geometry.attributes;gA.position.needsUpdate=gA.color.needsUpdate=gA.normal.needsUpdate=true;
   // soft normals from surface so rivers catch light
-  for(let j=1;j<R-1;j++)for(let i=1;i<R-1;i++){const k=j*R+i;if(col[k*4+3]===0)continue;const dx=pos[(k-1)*3+1]-pos[(k+1)*3+1],dz=pos[(k-R)*3+1]-pos[(k+R)*3+1],c=2*W/(R-1),l=1/Math.hypot(dx,c,dz);nor[k*3]=dx*l;nor[k*3+1]=c*l;nor[k*3+2]=dz*l}
+  const yw=q=>col[q*4+3]>0?pos[q*3+1]:pos[k0*3+1];let k0=0;/* dry neighbours count as level water, so shorelines don't tilt into glare */
+  for(let j=1;j<R-1;j++)for(let i=1;i<R-1;i++){const k=j*R+i;if(col[k*4+3]===0)continue;k0=k;const dx=yw(k-1)-yw(k+1),dz=yw(k-R)-yw(k+R),c=2*W/(R-1),l=1/Math.hypot(dx,c,dz);nor[k*3]=dx*l;nor[k*3+1]=c*l;nor[k*3+2]=dz*l}
   waterMesh.visible=any;if(!fast)updateWaterWall(any&&S.view.base&&sea>stats.lo);dirty=true;
 }
 function updateWaterWall(on){
