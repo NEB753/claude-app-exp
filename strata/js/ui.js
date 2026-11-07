@@ -108,7 +108,8 @@ let sheetState='half',insets={t:0,b:0};
 function measureInsets(){const p=document.createElement('div');p.style.cssText='position:fixed;left:0;top:0;width:1px;height:1px;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden';document.body.appendChild(p);const cs=getComputedStyle(p);insets={t:parseFloat(cs.paddingTop)||0,b:parseFloat(cs.paddingBottom)||0};p.remove()}
 const wide=()=>matchMedia('(min-width:900px)').matches;
 const compact=()=>!document.body.classList.contains('ui-large');
-function detentH(s){const dockH=compact()?60:72,top=insets.t+(compact()?60:70),avail=innerHeight-top-dockH-insets.b-22;return s==='peek'?Math.min(compact()?156:190,avail):s==='full'?avail:Math.min(Math.max(innerHeight*.45,300),avail)}
+const regular=()=>document.body.classList.contains('ui-regular');
+function detentH(s){const dockH=compact()?(regular()?66:60):72,top=insets.t+(compact()?(regular()?66:60):70),avail=innerHeight-top-dockH-insets.b-22;const pk=(compact()?(regular()?176:162):196)+(S.tab==='create'&&S.sub.create==='generate'?(compact()?(regular()?38:26):30):0);return s==='peek'?Math.min(pk,avail):s==='full'?avail:Math.min(Math.max(innerHeight*.45,300),avail)}
 function layoutSheet(h){
   if(landscape()){setViewShift(0,178);return}
   if(wide()){setViewShift(0);return}
@@ -184,32 +185,42 @@ const TIPS={
 };
 function renderHead(){
   const t=S.tab,hd=$('#sheetHead');let h='';
-  if(t==='create')h=`<h2>Create</h2><span class="grow"></span>${S.sub.create==='generate'?ddBtn('presetDD',S.preset):S.sub.create==='nodes'?`<button class="dd anodized press" id="gBuild"><span>Build</span></button>`:`<button class="dd metal press" id="pickTop">${svg('<path d="M12 5v14M5 12h14"/>',2.4)}<span>${REF.img?'Change':'Pick image'}</span></button>`}`;
+  if(t==='create')h=`${seg('sub.create',[['generate','Generate'],['nodes','Nodes'],['photo','Photo']],'head')}${S.sub.create==='nodes'?`<button class="dd anodized press" id="gBuild"><span>Build</span></button>`:S.sub.create==='photo'?`<button class="dd metal press" id="pickTop">${svg('<path d="M12 5v14M5 12h14"/>',2.4)}<span>${REF.img?'Change':'Pick'}</span></button>`:''}`;
   if(t==='sculpt')h=`<h2>Sculpt</h2><span class="grow"></span><span class="tag ${S.mode==='sculpt'?'on':''}">${S.mode==='sculpt'?'Brush on':'Camera'}</span>`;
   if(t==='simulate')h=`<h2>Simulate</h2><span class="grow"></span>${SR.running?`<span class="tag on">${SIMDEF[SR.kind].title} running</span>`:''}`;
   if(t==='biome')h=`<h2>Biome</h2><span class="grow"></span>${ddBtn('palDD',PALETTES[S.biome.palette].name)}`;
   if(t==='export')h=`<h2>Export</h2><span class="grow"></span><button class="dd anodized press" id="expTop">${svg('<path d="M12 4v11M7 10l5 5 5-5"/><path d="M4 18v2h16v-2"/>')}<span>Export</span></button>`;
   hd.innerHTML=h;const on=(id,f)=>{const el=$('#'+id,hd);if(el)el.onclick=f};
   on('presetDD',e=>openMenu(e.currentTarget,Object.keys(PRESETS).map(k=>({v:k,label:k,sub:PALETTES[PRESETS[k].biome.palette].name+' · '+fmtLen(PRESETS[k].shape.maxH)+' relief'})),v=>{applyPreset(v);toast(v+' loaded','ok')},S.preset));
+  if(t==='create')bindSegs(hd,(k,v)=>subCreate(v));
   on('gBuild',()=>buildFromGraph());on('pickTop',pickPhoto);on('expTop',exportNow);
   on('palDD',e=>openMenu(e.currentTarget,Object.entries(PALETTES).map(([k,p])=>({v:k,label:p.name,sw:`linear-gradient(135deg,rgb(${p.lush}),rgb(${p.rock}) 60%,rgb(${p.snow}))`})),v=>{S.biome.palette=v;recolorSoon();scatterSoon();renderHead()},S.biome.palette));
 }
+function subCreate(v){S.sub.create=v;setDetent(v==='nodes'?'full':v==='photo'?'half':'peek');renderSheet('enter');saveSoon()}
+/* one-tap creation: a fresh world from a random landscape type and seed */
+function newWorld(){const ks=Object.keys(PRESETS).filter(k=>k!==S.preset),k=ks[(Math.random()*ks.length)|0];S.seed=(Math.random()*1e6)|0;applyPreset(k);sfx('pop');haptic(12);toast(k,'ok')}
+function newVariation(){S.seed=(Math.random()*1e6)|0;regenerate();sfx('pop');haptic(10);const si=$('#seedIn');if(si)si.value=S.seed;const sm=$('#fine .sum');if(sm)sm.textContent='seed '+S.seed;if(fineOpen){drawPreview();drawVariations()}}
+const PTHUMB={};function presetThumb(k){if(!PTHUMB[k]){const p=PRESETS[k],cv=document.createElement('canvas'),f=genField(44,{cone:0,crater:0,...p.shape},7);const sea=S.biome.sea;S.biome.sea=p.biome.sea;drawRelief(cv,f,44,p.biome.palette);S.biome.sea=sea;PTHUMB[k]=cv.toDataURL()}return PTHUMB[k]}
+let fineOpen=false;
 const prompt_=(id,ph)=>`<div class="prompt"><textarea id="${id}" rows="1" placeholder="${ph}" aria-label="${ph}"></textarea><button class="goldm press" id="${id}Go" aria-label="Ask AI">${SPARK}</button></div><div class="ai-note" id="${id}Note"></div>`;
 function renderSheet(anim){
   const t=S.tab,b=$('#sheetBody');crumb();renderHead();
   $$('#dock [data-tab]').forEach(x=>x.setAttribute('aria-selected',x.dataset.tab===t));requestAnimationFrame(dockIndicator);
   let h='';
   if(t==='create'){
-    const sub=S.sub.create;h=seg('sub.create',[['generate','Generate'],['nodes','Nodes'],['photo','Photo']],'big')+'<div style="height:10px"></div>';
+    const sub=S.sub.create;
     if(sub==='generate'){
-      h+=`${prompt_('genPrompt','Describe a landscape…')}
+      h+=`<div class="make"><button class="btn anodized press" id="newWorld">${svg(IC.dice)}<span>New world</span></button><button class="btn metal press" id="newVar">${svg('<path d="M4 12a8 8 0 0 1 14-5.3L20 9M20 4v5h-5M20 12a8 8 0 0 1-14 5.3L4 15M4 20v-5h5"/>')}<span>Variation</span></button></div>
+      <div class="pcards" id="pcards">${Object.keys(PRESETS).map(k=>`<button class="pcard press" data-preset="${esc(k)}" aria-pressed="${S.preset===k}"><img alt="" src="${presetThumb(k)}"><span>${esc(k)}</span></button>`).join('')}</div>
+      ${prompt_('genPrompt','Describe a landscape…')}
+      <details class="acc" id="fine"${fineOpen?' open':''}><summary>Fine-tune<span class="sum">seed ${S.seed}</span><span class="chev" style="margin-left:8px">${CHEVR}</span></summary><div class="acc-body">
       <div class="padwrap"><div class="pad" id="pad" role="slider" aria-label="Character pad: ruggedness and age" tabindex="0"><span class="ax" style="left:50%;top:8px;transform:translateX(-50%)">Young</span><span class="ax" style="left:50%;bottom:8px;transform:translateX(-50%)">Ancient</span><span class="ax" style="left:9px;top:50%;transform:translateY(-50%)">Gentle</span><span class="ax" style="right:9px;top:50%;transform:translateY(-50%)">Rugged</span><div class="knob" id="knob"></div></div><div class="preview"><canvas id="genPrev"></canvas></div></div>
       <div class="label">Seed & variations</div><div class="seedrow"><label class="seed" for="seedIn"><span>Seed</span><input id="seedIn" inputmode="numeric" value="${S.seed}"></label><button class="btn metal press" id="dice" style="flex:none;min-width:0;width:44px;padding:0" aria-label="Random seed">${svg(IC.dice)}</button><button class="btn plain press" id="reroll" style="flex:none;min-width:0;padding:0 14px">More</button></div>
       <div class="vars" id="vars">${[0,1,2,3].map(i=>`<button class="press" data-var="${i}"><canvas></canvas><small></small></button>`).join('')}</div><div style="height:8px"></div>
-      ${acc('Landform',sliderRow('shape.freq','Scale',.8,6,.05)+sliderRow('shape.oct','Detail',3,8,1,null,null,v=>v+' oct')+sliderRow('shape.gain','Roughness',.3,.65,.01)+sliderRow('shape.ridges','Ridges',0,1,.01,null,null,pct)+sliderRow('shape.warp','Warp',0,1,.01,null,null,pct)+sliderRow('shape.peaks','Peaks',.6,3,.05),true)}
+      ${acc('Landform',sliderRow('shape.freq','Scale',.8,6,.05)+sliderRow('shape.oct','Detail',3,8,1,null,null,v=>v+' oct')+sliderRow('shape.gain','Roughness',.3,.65,.01)+sliderRow('shape.ridges','Ridges',0,1,.01,null,null,pct)+sliderRow('shape.warp','Warp',0,1,.01,null,null,pct)+sliderRow('shape.peaks','Peaks',.6,3,.05))}
       ${acc('Features',sliderRow('shape.cone','Central peak',0,1,.01,null,null,pct)+sliderRow('shape.crater','Crater',0,1,.01,null,null,pct)+sliderRow('shape.island','Island',0,1,.01,null,null,pct)+sliderRow('shape.terrace','Terraces',0,1,.01,null,null,pct)+sliderRow('shape.tsteps','Steps',3,14,1))}
       ${acc('Size',sliderRow('shape.maxH','Max height',20,1200,5,null,null,m)+sliderRow('shape.world','World size',400,8000,50,null,null,m),false,fmtLen(S.shape.world))}
-      <div class="facts" id="facts"></div><p class="tip" style="margin-top:12px">${TIPS.generate}</p>`;
+      <div class="facts" id="facts"></div></div></details><p class="tip" style="margin-top:12px">${TIPS.generate}</p>`;
     }else if(sub==='nodes'){h+=`${prompt_('nodePrompt','Describe a node graph…')}<div id="gHost"></div><p class="tip" style="margin-top:10px">${TIPS.nodes}</p>`}
     else{const P=S.photo;
       h+=`<div class="photo-drop"><button class="thumb press" id="pickThumb" aria-label="Pick image" style="${REF.url?`background-image:url(${REF.url})`:''}">${REF.url?'':svg('<rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="3.5"/>')}</button>
@@ -229,7 +240,7 @@ function renderSheet(anim){
     <div class="tools">${TOOLS.filter(t=>tl.includes(t[0])).map(([k,l,p])=>`<button class="tool press${S.tool===k?' anodized':''}" data-tool="${k}" aria-pressed="${S.tool===k}">${svg(p)}${l}</button>`).join('')}</div>${ctxh}
     ${acc('Brush',sliderRow('brush.size','Size',5,Math.round(S.shape.world*.3),1,null,240,v=>fmtLen(v*2))+sliderRow('brush.strength','Strength',.05,1,.01,null,.5,pct)+sliderRow('brush.falloff','Softness',0,1,.01,null,.7,pct)
       +`<div class="row" style="grid-template-columns:96px 1fr"><label>Tip</label>${ddBtn('shapeDD',BRUSH_SHAPES[S.brush.shape]||'Soft','metal wide')}</div><div class="row" style="grid-template-columns:96px 1fr"><label>Symmetry</label>${ddBtn('symDD',SYMS[S.brush.sym]||'Off','metal wide')}</div>`
-      +sliderRow('brush.lazy','Stabilizer',0,.9,.01,null,.25,pct)+tg('brush.hold','Airbrush','Keep building while you hold still'),true)}
+      +sliderRow('brush.lazy','Stabilizer',0,.9,.01,null,.25,pct)+tg('brush.hold','Airbrush','Keep building while you hold still'),false,fmtLen(S.brush.size*2)+' · '+pct(S.brush.strength))}
     <p class="tip" style="margin-top:10px">${TIPS.sculpt}</p>`;
   }else if(t==='simulate'){
     const k=S.sub.sim,d=SIMDEF[k],run=SR.running&&SR.kind===k,lv=S.sim.level;
@@ -241,7 +252,8 @@ function renderSheet(anim){
     <div class="chips">${Object.entries(SIM_LEVELS).map(([v,l])=>`<button class="chipb press" data-level="${v}" aria-pressed="${lv===v}">${l.n}</button>`).join('')}</div>
     ${tg('sim.autoBake','Bake automatically when done','The finished result becomes part of the land')}
     <div class="btns" style="margin-top:4px"><button class="btn metal press" id="simBake">Bake now</button>${d.clear?'<button class="btn plain press" id="simClear">Clear</button>':''}</div>
-    <div style="height:10px"></div>${prompt_('simPrompt',k==='water'?'Describe the water…':k==='lava'?'Describe the eruption…':k==='snow'?'Describe the snow…':k==='wind'?'Describe the wind…':'Describe the weathering…')}`;
+    <div style="height:8px"></div>${prompt_('simPrompt',k==='water'?'Describe the water…':k==='lava'?'Describe the eruption…':k==='snow'?'Describe the snow…':k==='wind'?'Describe the wind…':'Describe the weathering…')}`;
+    const P0=h.length;
     if(k==='water')h+=`<div class="seg" role="group"><button class="press" data-ftool="spring" aria-pressed="${S.tool==='spring'}">Place spring</button><button class="press" data-ftool="channel" aria-pressed="${S.tool==='channel'}">Carve channel</button></div><div class="stat"><span class="tag">${S.fluid.springs.length} spring${S.fluid.springs.length===1?'':'s'}</span><span class="tag">${QUALITY[S.quality].sim}² grid</span></div><div style="height:6px"></div>
       ${sliderRow('fluid.rain','Rain',0,1,.01,null,.35,pct)+sliderRow('fluid.flow','Spring flow',0,1,.01,null,.7,pct)+sliderRow('fluid.carve','Carve',0,1,.01,null,.5,pct)+sliderRow('fluid.evap','Evaporation',0,1,.01,null,.25,pct)+sliderRow('biome.sea','Sea level',0,.6,.005,null,null,v=>fmtLen(v*S.shape.maxH))}
       <div class="btns"><button class="btn plain press" id="fSprings">Remove springs</button><button class="btn plain press" id="fDry">Dry riverbeds</button></div>`;
@@ -251,10 +263,10 @@ function renderSheet(anim){
     if(k==='wind')h+=dialRow('wind.dir','Blows toward')+sliderRow('wind.power','Strength',0,1,.01,null,.6,pct)+sliderRow('wind.supply','Sand supply',0,1,.01,null,.5,pct);
     if(k==='erode')h+=sliderRow('ero.drops','Raindrops',10000,200000,5000,null,60000,v=>Math.round(v/1000)+'k')+sliderRow('ero.power','Carving',.2,2,.05,null,1)+`<div class="label">Instant</div><div class="btns"><button class="btn plain press" id="runTh">Weather slopes</button><button class="btn plain press" id="runSm">Smooth all</button><button class="btn plain press" id="runSh">Sharpen all</button></div>`+sliderRow('ero.talus','Talus angle',15,60,1,null,34,v=>Math.round(v)+'°');
     if(['storm','tornado','quake','slide','blizzard'].includes(k))h+=sliderRow('weather.power','Intensity',0,1,.01,null,.6,pct)+(k==='tornado'||k==='blizzard'?dialRow('weather.dir','Moves toward'):'')+`<p class="hint">${{storm:'Torrential rain floods valleys and storm winds fell trees on coasts and open ground (they become fallen logs).',tornado:'A funnel crosses the map, scouring soil and flattening forest along its track.',quake:'A fault rips across the land, lifting one side; steep slopes collapse. Mask areas to protect them.',slide:'The steepest cliff collapses into a scree fan. Long-press the map → Rockslide to choose the spot.',blizzard:'Heavy snow piles on the downwind side of ridges.'}[k]}</p>`;
-    h+=`<p class="tip" style="margin-top:12px">${TIPS.simulate}</p>`;
+    h=h.slice(0,P0)+acc('Settings',h.slice(P0),false)+`<p class="tip" style="margin-top:12px">${TIPS.simulate}</p>`;
   }else if(t==='biome'){
     const T=S.scatter.types,typeAcc=k=>{const L=SCATTER_TYPES[k];return acc(L.label,tg(`scatter.types.${k}.on`,'Show')+sliderRow(`scatter.types.${k}.density`,'Density',0,1,.01,null,L.def.density,pct)+sliderRow(`scatter.types.${k}.lo`,'Lowest',0,1,.01,null,L.def.lo,pct)+sliderRow(`scatter.types.${k}.hi`,'Highest',0,1,.01,null,L.def.hi,pct)+sliderRow(`scatter.types.${k}.slope`,'Max slope',5,90,1,null,L.def.slope,v=>Math.round(v)+'°')+sliderRow(`scatter.types.${k}.size`,'Size',.5,4,.05,null,L.def.size,v=>(+v).toFixed(2)+'×')+sliderRow(`scatter.types.${k}.cluster`,'Clustering',0,1,.01,null,L.def.cluster,pct),false,`<span data-count="${k}">${fmt(scatterCounts[k]||0)}</span>`)};
-    h=`${acc('Coloring',sliderRow('biome.sea','Sea level',0,.6,.005,null,null,v=>fmtLen(v*S.shape.maxH))+sliderRow('biome.beach','Beach',0,.05,.001,null,null,v=>fmtLen(v*S.shape.maxH))+sliderRow('biome.snow','Snow line',.2,1,.01,null,null,v=>v>=1?'none':fmtLen(v*S.shape.maxH))+sliderRow('biome.rock','Rock slope',.2,1.4,.01,null,null,v=>Math.round(Math.acos(1-clamp(v*.42,0,1))*180/Math.PI)+'°')+sliderRow('biome.lush','Greenery',0,1,.01,null,null,pct),true)}
+    h=`${acc('Coloring',sliderRow('biome.sea','Sea level',0,.6,.005,null,null,v=>fmtLen(v*S.shape.maxH))+sliderRow('biome.beach','Beach',0,.05,.001,null,null,v=>fmtLen(v*S.shape.maxH))+sliderRow('biome.snow','Snow line',.2,1,.01,null,null,v=>v>=1?'none':fmtLen(v*S.shape.maxH))+sliderRow('biome.rock','Rock slope',.2,1.4,.01,null,null,v=>Math.round(Math.acos(1-clamp(v*.42,0,1))*180/Math.PI)+'°')+sliderRow('biome.lush','Greenery',0,1,.01,null,null,pct))}
     <div style="height:4px"></div>${tg('scatter.on','Trees, rocks & buildings','Instanced 3D assets placed by rules')}
     ${sliderRow('scatter.forest','Forest density',0,2,.01,null,1,v=>Math.round(v*100)+'%')}
     ${['conifer','broadleaf','bush','grass','boulder','deadfall'].map(typeAcc).join('')}
@@ -278,12 +290,16 @@ function renderSheet(anim){
 function bindPanel(t){
   const b=$('#sheetBody'),on=(id,f)=>{const el=$('#'+id,b);if(el)el.onclick=f};
   bindSliders(b);bindToggles(b);
-  bindSegs(b,(k,v)=>{if(k==='sub.create'){S.sub.create=v;setDetent(v==='nodes'?'full':'half');renderSheet('enter');return}if(k==='sub.sim'){S.sub.sim=v;renderSheet('enter');return}setK(k,v);onParam(k,v,true)});
+  bindSegs(b,(k,v)=>{if(k==='sub.create'){subCreate(v);return}if(k==='sub.sim'){S.sub.sim=v;renderSheet('enter');return}setK(k,v);onParam(k,v,true)});
   $$('textarea',b).forEach(ta=>ta.oninput=()=>{ta.style.height='38px';ta.style.height=Math.min(ta.scrollHeight,110)+'px'});
   const pb=(id,kind)=>{const ta=$('#'+id,b);if(!ta)return;const go=()=>promptBar(kind,ta.value,$('#'+id+'Note'),$('#'+id+'Go'));on(id+'Go',go);ta.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();go()}}};
   pb('genPrompt','generate');pb('nodePrompt','nodes');pb('simPrompt','simulate');
   if(t==='create'&&S.sub.create==='generate'){
-    bindPad();drawPreview();drawVariations();renderFacts();
+    on('newWorld',newWorld);on('newVar',newVariation);
+    $$('[data-preset]',b).forEach(x=>x.onclick=()=>{const k=x.dataset.preset;if(k===S.preset){newVariation();return}applyPreset(k);toast(k,'ok')});
+    const pc=$('#pcards',b),cur=pc&&pc.querySelector('[aria-pressed="true"]');if(cur)requestAnimationFrame(()=>{pc.scrollLeft=Math.max(0,cur.offsetLeft-pc.clientWidth/2+cur.offsetWidth/2)});
+    const fine=$('#fine',b),fill=()=>{drawPreview();drawVariations();renderFacts()};fine.ontoggle=()=>{fineOpen=fine.open;if(fine.open)fill()};
+    bindPad();if(fineOpen)fill();
     const si=$('#seedIn');si.onchange=()=>{const v=parseInt(si.value,10);if(!isNaN(v)){S.seed=Math.abs(v)%1e9;regenerate();drawVariations();drawPreview()}};
     on('dice',()=>{S.seed=(Math.random()*1e6)|0;si.value=S.seed;regenerate();drawVariations();drawPreview()});
     on('reroll',()=>{varBase=(Math.random()*1e6)|0;drawVariations()});

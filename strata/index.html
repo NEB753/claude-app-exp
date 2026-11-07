@@ -560,6 +560,93 @@ body:not(.ui-large) .ngcard canvas{width:72px;height:72px}
 #camTime{font-family:var(--f-mono);font-size:12px;color:#fff;background:#e5484d;padding:3px 9px;border-radius:7px}
 body.cammode #top,body.cammode #rail,body.cammode #bottom,body.cammode #hud,body.cammode #readout,body.cammode #simChip,body.cammode #refPin{opacity:0;pointer-events:none}
 
+
+/* ---- v1.2 appearance: accent colors, styles, sizes ---- */
+:root[data-accent="ocean"]{--accent:#1d5f86;--accent-hi:#3f8fbf;--accent-lo:#0e3a55;--accent-ink:#f2f8fc;--accent-soft:rgba(29,95,134,.15);--gold:#a87632;--gold-hi:#efcd92;--gold-lo:#6d4b19;--gold-ink:#231505;--gold-soft:rgba(190,140,70,.22)}
+@media (prefers-color-scheme: dark){:root[data-accent="ocean"]:not([data-theme="light"]){--accent:#3f97c9;--accent-hi:#86c3e6;--accent-lo:#1b5a80;--accent-ink:#03111a;--accent-soft:rgba(63,151,201,.15);--gold:#e0b66a;--gold-hi:#f5dcaa;--gold-lo:#a17a35;--gold-ink:#1f1402;--gold-soft:rgba(224,182,106,.22)}}
+:root[data-accent="ocean"][data-theme="dark"]{--accent:#3f97c9;--accent-hi:#86c3e6;--accent-lo:#1b5a80;--accent-ink:#03111a;--accent-soft:rgba(63,151,201,.15);--gold:#e0b66a;--gold-hi:#f5dcaa;--gold-lo:#a17a35;--gold-ink:#1f1402;--gold-soft:rgba(224,182,106,.22)}
+:root[data-accent="ember"]{--accent:#a2431f;--accent-hi:#d26c40;--accent-lo:#622510;--accent-ink:#fff5f0;--accent-soft:rgba(162,67,31,.15);--gold:#b8862a;--gold-hi:#f3d07c;--gold-lo:#7a5714;--gold-ink:#241703;--gold-soft:rgba(200,150,60,.22)}
+@media (prefers-color-scheme: dark){:root[data-accent="ember"]:not([data-theme="light"]){--accent:#d8693d;--accent-hi:#f0a07c;--accent-lo:#8a3a1c;--accent-ink:#1a0702;--accent-soft:rgba(216,105,61,.15);--gold:#e2b551;--gold-hi:#f7dc95;--gold-lo:#a17b26;--gold-ink:#1f1402;--gold-soft:rgba(226,181,81,.22)}}
+:root[data-accent="ember"][data-theme="dark"]{--accent:#d8693d;--accent-hi:#f0a07c;--accent-lo:#8a3a1c;--accent-ink:#1a0702;--accent-soft:rgba(216,105,61,.15);--gold:#e2b551;--gold-hi:#f7dc95;--gold-lo:#a17b26;--gold-ink:#1f1402;--gold-soft:rgba(226,181,81,.22)}
+:root[data-accent="violet"]{--accent:#5a3f9a;--accent-hi:#8a6fcc;--accent-lo:#35225f;--accent-ink:#f7f4ff;--accent-soft:rgba(90,63,154,.15);--gold:#b06a64;--gold-hi:#f1c3b6;--gold-lo:#77403b;--gold-ink:#2a0f0c;--gold-soft:rgba(196,120,110,.22)}
+@media (prefers-color-scheme: dark){:root[data-accent="violet"]:not([data-theme="light"]){--accent:#8f74da;--accent-hi:#bfaaf2;--accent-lo:#563f99;--accent-ink:#0c0619;--accent-soft:rgba(143,116,218,.15);--gold:#e29c8e;--gold-hi:#f7cfc4;--gold-lo:#a3605a;--gold-ink:#2a0f0c;--gold-soft:rgba(226,156,142,.22)}}
+:root[data-accent="violet"][data-theme="dark"]{--accent:#8f74da;--accent-hi:#bfaaf2;--accent-lo:#563f99;--accent-ink:#0c0619;--accent-soft:rgba(143,116,218,.15);--gold:#e29c8e;--gold-hi:#f7cfc4;--gold-lo:#a3605a;--gold-ink:#2a0f0c;--gold-soft:rgba(226,156,142,.22)}
+:root[data-accent="graphite"]{--accent:#39444c;--accent-hi:#66737c;--accent-lo:#1d2429;--accent-ink:#f3f6f8;--accent-soft:rgba(57,68,76,.15);--gold:#5f7d91;--gold-hi:#cfe0eb;--gold-lo:#3d5566;--gold-ink:#0d171e;--gold-soft:rgba(95,125,145,.22)}
+@media (prefers-color-scheme: dark){:root[data-accent="graphite"]:not([data-theme="light"]){--accent:#9aa8b2;--accent-hi:#cfd8de;--accent-lo:#5d6a73;--accent-ink:#0b0f12;--accent-soft:rgba(154,168,178,.15);--gold:#a9c6d8;--gold-hi:#e3eef4;--gold-lo:#6f8fa3;--gold-ink:#0d171e;--gold-soft:rgba(169,198,216,.22)}}
+:root[data-accent="graphite"][data-theme="dark"]{--accent:#9aa8b2;--accent-hi:#cfd8de;--accent-lo:#5d6a73;--accent-ink:#0b0f12;--accent-soft:rgba(154,168,178,.15);--gold:#a9c6d8;--gold-hi:#e3eef4;--gold-lo:#6f8fa3;--gold-ink:#0d171e;--gold-soft:rgba(169,198,216,.22)}
+:root[data-accent="sakura"]{--accent:#b0466b;--accent-hi:#d9779a;--accent-lo:#6e2440;--accent-ink:#fff4f8;--accent-soft:rgba(176,70,107,.15);--gold:#b98b25;--gold-hi:#f2d27a;--gold-lo:#7c5a12;--gold-ink:#241703;--gold-soft:rgba(201,160,60,.22)}
+@media (prefers-color-scheme: dark){:root[data-accent="sakura"]:not([data-theme="light"]){--accent:#e0789c;--accent-hi:#f3aec6;--accent-lo:#9a3f60;--accent-ink:#1d0610;--accent-soft:rgba(224,120,156,.15);--gold:#d9ae4a;--gold-hi:#f6dc8f;--gold-lo:#9a7220;--gold-ink:#1f1402;--gold-soft:rgba(217,174,74,.22)}}
+:root[data-accent="sakura"][data-theme="dark"]{--accent:#e0789c;--accent-hi:#f3aec6;--accent-lo:#9a3f60;--accent-ink:#1d0610;--accent-soft:rgba(224,120,156,.15);--gold:#d9ae4a;--gold-hi:#f6dc8f;--gold-lo:#9a7220;--gold-ink:#1f1402;--gold-soft:rgba(217,174,74,.22)}
+
+/* Solid: opaque panels, no blur (also the fastest on older phones) */
+:root{--panel:#f1f5f3}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--panel:#16211c}}
+:root[data-theme="dark"]{--panel:#16211c}
+:root[data-style="solid"] .glass,:root[data-style="minimal"] .glass,:root[data-style="solid"] .pop,:root[data-style="minimal"] .pop{-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--panel);box-shadow:0 0 0 1px var(--hair),0 10px 30px -14px var(--shadow)}
+:root[data-style="solid"] .glass::before,:root[data-style="solid"] .glass::after,:root[data-style="minimal"] .glass::before,:root[data-style="minimal"] .glass::after{display:none}
+:root[data-style="solid"] .pop,:root[data-style="minimal"] .pop{-webkit-backdrop-filter:none;backdrop-filter:none}
+/* Minimal: flat controls, tighter corners, no metal or bevels */
+:root[data-style="solid"] :is(#home,#helper,#ng),:root[data-style="minimal"] :is(#home,#helper,#ng){background:var(--panel)}
+:root[data-style="minimal"]{--r-xl:18px;--r-lg:14px;--r-md:11px;--r-sm:8px}
+:root[data-style="minimal"] .glass{box-shadow:0 0 0 1px var(--hair),0 6px 18px -12px var(--shadow)}
+:root[data-style="minimal"] .metal{background:var(--track-2);color:var(--ink);box-shadow:none}
+:root[data-style="minimal"] .anodized{background:var(--accent);box-shadow:none}
+:root[data-style="minimal"] .goldm{background:var(--gold);box-shadow:none}
+:root[data-style="minimal"] .seg .ind,:root[data-style="minimal"] #dock .ind{box-shadow:none}
+:root[data-style="minimal"] .sl .th{background:var(--ink);box-shadow:none}
+:root[data-style="minimal"] .sl .fi{background:var(--accent)}
+:root[data-style="minimal"] #sheet,:root[data-style="minimal"] #dock,:root[data-style="minimal"] #top,:root[data-style="minimal"] #rail{border-radius:18px}
+/* Regular size: between Compact and Large */
+body.ui-regular{font-size:14.5px}
+body.ui-regular #top{height:50px;padding:5px}
+body.ui-regular .brand{height:40px;font-size:16.5px}
+body.ui-regular .ibtn{width:40px;height:40px}
+body.ui-regular .ibtn svg{width:20px;height:20px}
+body.ui-regular .ask{height:40px;font-size:14px}
+body.ui-regular #rail{top:calc(env(safe-area-inset-top,0px) + 64px)}
+body.ui-regular #rail button{width:40px;height:40px}
+body.ui-regular #rail button svg{width:20px;height:20px}
+body.ui-regular #hud{top:calc(env(safe-area-inset-top,0px) + 108px)}
+body.ui-regular #sheetHead{min-height:42px}
+body.ui-regular #sheetHead h2{font-size:19px}
+body.ui-regular #dock button{padding:6px 0 5px;font-size:10.5px}
+body.ui-regular #dock button svg{width:21px;height:21px}
+body.ui-regular .row{min-height:40px}
+body.ui-regular .row>label{font-size:14px}
+body.ui-regular .sl{height:32px}
+body.ui-regular .sl .tr{top:14px}
+body.ui-regular .sl .th{top:7px;width:24px;height:18px;margin-left:-12px}
+body.ui-regular .btn{min-height:42px;font-size:14px}
+body.ui-regular .acc>summary{min-height:42px;font-size:14px}
+body.ui-regular .toggle{min-height:44px;font-size:14px}
+body.ui-regular .chipb{padding:7px 12px;font-size:13px}
+body.ui-regular .seg.head button{padding:7px 4px;font-size:13px}
+body.ui-regular .pcard{width:68px}body.ui-regular .pcard img{width:68px;height:68px}body.ui-large .pcard{width:72px}body.ui-large .pcard img{width:72px;height:72px}
+/* tips only when Settings → Show tips is on */
+body:not(.show-tips) .tip{display:none}
+/* minimal create: the sub switch lives in the sheet header; one-tap make row + landscape cards */
+.seg.head{flex:1;min-width:0;max-width:300px}
+.seg.head button{padding:6px 4px;font-size:12.5px;font-weight:650}
+.make{display:flex;gap:8px}
+.make .btn{min-width:0}
+.make .btn svg{width:17px;height:17px}
+.pcards{display:flex;gap:8px;overflow-x:auto;padding:8px 2px 6px;margin:0 -2px;scrollbar-width:none;touch-action:pan-x;scroll-snap-type:x proximity}
+.pcards::-webkit-scrollbar{display:none}
+.pcard{flex:none;width:60px;display:flex;flex-direction:column;align-items:center;gap:5px;scroll-snap-align:start;color:var(--ink-2)}
+.pcard img{width:60px;height:60px;border-radius:14px;display:block;box-shadow:0 0 0 1px var(--hair);transition:box-shadow .25s,transform .35s var(--spring)}
+.pcard span{font-size:11px;font-weight:600;line-height:1.15;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pcard[aria-pressed="true"]{color:var(--ink)}
+.pcard[aria-pressed="true"] img{box-shadow:0 0 0 2px var(--gold),0 6px 14px -6px var(--shadow)}
+#fine{margin-top:8px}
+/* settings: color swatches + style previews */
+.swatches{display:flex;gap:10px;flex-wrap:wrap;padding:4px 0 6px}
+.swatch-b{width:40px;height:40px;border-radius:50%;position:relative;box-shadow:0 0 0 1px var(--hair);transition:transform .35s var(--spring),box-shadow .2s}
+.swatch-b i{position:absolute;right:-1px;bottom:-1px;width:16px;height:16px;border-radius:50%;box-shadow:0 0 0 2px var(--tint-strong)}
+.swatch-b[aria-pressed="true"]{box-shadow:0 0 0 2px var(--tint-strong),0 0 0 4px var(--ink)}
+.swatch-b:active{transform:scale(.9)}
+.swl{font-size:11px;color:var(--ink-3);text-align:center;margin-top:4px}
+.swcol{display:flex;flex-direction:column;align-items:center}
+
 </style>
 
 <canvas id="view" aria-label="3D terrain view"></canvas>

@@ -100,7 +100,7 @@ function genField(R,sh,seed){
   }
   const inv=1/(hi-lo||1),st=sh.tsteps||6;
   for(let j=0;j<R;j++)for(let i=0;i<R;i++){
-    const k=j*R+i,dx=i/(R-1)-.5,dy=j/(R-1)-.5,d=Math.sqrt(dx*dx+dy*dy)*2;let h=(out[k]-lo)*inv;
+    const k=j*R+i,dx=i/(R-1)-.5,dy=j/(R-1)-.5,d=Math.sqrt(dx*dx+dy*dy)*2;let h=Math.max(0,(out[k]-lo)*inv);/* out is float32, lo is float64: the lowest cell can round below 0 and pow() would give NaN */
     if(sh.cone>0)h=lerp(h,h*.3+.7*Math.pow(clamp(1-d*1.15,0,1),1.6),sh.cone);
     if(sh.crater>0)h=Math.max(0,h-sh.crater*.4*(1-smooth(.05,.15,d)));
     h=Math.pow(h,sh.peaks);
@@ -181,8 +181,9 @@ function haptic(ms,kind){
     if(IOS){if(!_hapEl){_hapEl=document.createElement('label');_hapEl.setAttribute('aria-hidden','true');_hapEl.style.cssText='position:fixed;left:-100px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';const i=document.createElement('input');i.type='checkbox';i.setAttribute('switch','');i.tabIndex=-1;_hapEl.appendChild(i);document.body.appendChild(_hapEl)}_hapEl.click()}}catch(e){}}
 function celebrate(){const c=$('#celebrate');if(!c||SET.reduceMotion)return;const cols=['var(--gold)','var(--gold-hi)','var(--accent-hi)','var(--blue)','#fff'];let h='';for(let i=0;i<22;i++){const a=Math.random()*6.283,d=70+Math.random()*90;h+=`<i style="background:${cols[i%5]};--x:${Math.cos(a)*d}px;--y:${Math.sin(a)*d-40}px;--r:${Math.random()*540}deg;animation-delay:${Math.random()*.08}s"></i>`}c.innerHTML=h;c.classList.remove('go');void c.offsetWidth;c.classList.add('go')}
 /* device settings (per browser), separate from the project */
-const SET_DEF={sound:true,volume:.6,uiLarge:false,adaptive:true,theme:'',units:'m',invertY:false,sens:1,leftHand:false,reduceMotion:false,apiKey:'',model:'claude-opus-5-5',haptics:true,hints:true};
-let SET={...SET_DEF};try{SET={...SET_DEF,...JSON.parse(localStorage.getItem('strata.settings')||'{}')}}catch(e){}
+const SET_DEF={sound:true,volume:.6,uiSize:'compact',accent:'forest',style:'glass',adaptive:true,theme:'',units:'m',invertY:false,sens:1,leftHand:false,reduceMotion:false,apiKey:'',model:'claude-opus-5-5',haptics:true,hints:false};
+let SET={...SET_DEF};try{const o=JSON.parse(localStorage.getItem('strata.settings')||'{}');SET={...SET_DEF,...o};
+  if(!('uiSize' in o)){SET.uiSize=o.uiLarge?'large':'compact';SET.hints=false}delete SET.uiLarge}catch(e){}
 function saveSettings(){try{localStorage.setItem('strata.settings',JSON.stringify(SET))}catch(e){}}
 const fmtLen=m=>SET.units==='ft'?fmt(m*3.28084)+' ft':fmt(m)+' m';
 function busy(on,t,p){$('#busy').hidden=!on;if(t)$('#busyText').textContent=t;$('#busyBar').style.width=((p||0)*100)+'%'}

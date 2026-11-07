@@ -137,7 +137,7 @@ function loop(now){
   requestAnimationFrame(loop);
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{applyTheme()});
-new MutationObserver(()=>applyTheme()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+new MutationObserver(()=>applyTheme()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme','data-accent']});
 (async function boot(){
   if(!window.THREE)return;
   applySettings();measureInsets();

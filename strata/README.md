@@ -43,3 +43,17 @@ A phone-first terrain studio with no build step. It uses Three.js r128 from cdnj
   - HQ photos up to 4096 px.
   - Videos (Turntable, Flyover, Drift) as MP4 or WebM.
   - Render mode applies the same pipeline (with anti-aliasing) to the live view.
+
+**V1.2**
+- **Instant sound**: taps and toggles sound on finger-down instead of after release, with a low-latency audio context that's unlocked on the first touch.
+- **Appearance** (Settings):
+  - Interface size: Compact, Regular or Large.
+  - Six color themes: Forest, Ocean, Ember, Violet, Graphite and Sakura. Each has light and dark variants.
+  - Style: Liquid glass, Solid (no blur, fastest) or Minimal (flat, no bevels).
+- **Minimal create**:
+  - The Generate, Nodes and Photo switch now sits in the panel header.
+  - Generate opens on **New world** and **Variation** buttons and a row of landscape cards.
+  - The pad, seed, variations and sliders are folded under **Fine-tune**.
+  - Brush, simulation settings and coloring start collapsed.
+  - Tips are hidden unless you turn on Show tips.
+- **Fix**: ridged presets no longer generate a single NaN height cell, which caused a stray vertex. Saved creations are repaired when opened.

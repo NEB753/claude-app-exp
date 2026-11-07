@@ -16,7 +16,7 @@ function unpackProject(d){const def=DEF(),s=d.S;
     view:{...def.view,...s.view},exp:{...def.exp,...s.exp},photo:{...def.photo,...s.photo},sub:{...def.sub,...s.sub},
     scatter:{on:s.scatter?s.scatter.on!==false:true,types:Object.fromEntries(Object.entries(scatterDefaults()).map(([k,v])=>[k,{...v,...(s.scatter&&s.scatter.types&&s.scatter.types[k])}]))}};
   if(!QUALITY[S.quality])S.quality=autoQuality();if(!['create','sculpt','simulate','biome','export'].includes(S.tab))S.tab='create';
-  N=d.N;H=d.H instanceof Float32Array?d.H:new Float32Array(d.H);PC=Float32Array.from(d.PC);PW=Float32Array.from(d.PW,v=>v/255);SM=Float32Array.from(d.SM,v=>v/100);WM=Float32Array.from(d.WM,v=>v/255);MK=d.MK?Float32Array.from(d.MK,v=>v/255):new Float32Array(N*N);DF=d.DF?Float32Array.from(d.DF,v=>v/255):new Float32Array(N*N)}
+  N=d.N;H=d.H instanceof Float32Array?d.H:new Float32Array(d.H);for(let k=0;k<H.length;k++)if(!isFinite(H[k]))H[k]=0;/* heal the stray NaN cell older versions could save */PC=Float32Array.from(d.PC);PW=Float32Array.from(d.PW,v=>v/255);SM=Float32Array.from(d.SM,v=>v/100);WM=Float32Array.from(d.WM,v=>v/255);MK=d.MK?Float32Array.from(d.MK,v=>v/255):new Float32Array(N*N);DF=d.DF?Float32Array.from(d.DF,v=>v/255):new Float32Array(N*N)}
 async function saveProject(withThumb){if(!H)return;if(!curId)curId=newId();const now=Date.now(),meta=(await DB.get('meta',curId).catch(()=>null))||{id:curId,created:now};
   meta.name=S.name;meta.updated=now;meta.N=N;meta.preset=S.preset;if(withThumb||!meta.thumb||now-lastThumb>20000){const t=snapshot();if(t){meta.thumb=t;lastThumb=now}}
   await DB.set('proj',curId,packProject());await DB.set('meta',curId,meta);await DB.set('kv','current',curId)}
@@ -87,18 +87,26 @@ async function renderLibrary(body){
 }
 function setRow(label,sub,ctrl){return `<div class="setrow"><span>${label}${sub?`<small style="display:block;color:var(--ink-3);font-size:12px">${sub}</small>`:''}</span>${ctrl}</div>`}
 const stg=(k,label,small)=>`<label class="toggle"><span>${label}${small?`<small>${small}</small>`:''}</span><span class="switch"><input type="checkbox" data-sk="${k}" ${SET[k]?'checked':''}><span></span></span></label>`;
+const ACCENTS={forest:{n:'Forest',a:'#1f5c41',g:'#d9ae4a'},ocean:{n:'Ocean',a:'#1d5f86',g:'#e0b66a'},ember:{n:'Ember',a:'#a2431f',g:'#e2b551'},violet:{n:'Violet',a:'#5a3f9a',g:'#e29c8e'},graphite:{n:'Graphite',a:'#39444c',g:'#a9c6d8'},sakura:{n:'Sakura',a:'#b0466b',g:'#d9ae4a'}};
 async function renderSettings(body){
   const mode=await aiMode();let est=null;try{est=navigator.storage&&navigator.storage.estimate?await navigator.storage.estimate():null}catch(e){}
   const q=Object.entries(QUALITY);
   body.innerHTML=`<div class="label" style="margin-top:0">Quality</div>${q.map(([k,v])=>`<button class="it press" data-q="${k}" style="display:flex;width:100%;align-items:center;gap:10px;padding:11px 12px;border-radius:14px;text-align:left;${S.quality===k?'background:var(--accent-soft)':''}"><span style="flex:1"><b style="font-weight:650">${v.label}</b><small style="display:block;color:var(--ink-3);font-size:12px">${v.sub}</small></span>${S.quality===k?`<span style="color:var(--gold)">${svg('<path d="m5 12 5 5 9-10"/>',2.6)}</span>`:''}</button>`).join('')}
   <div class="label">Appearance</div>
   <div class="seg" id="setTheme"><span class="ind"></span>${[['','System'],['light','Light'],['dark','Dark']].map(([v,l])=>`<button data-theme="${v}" aria-pressed="${(SET.theme||'')===v}">${l}</button>`).join('')}</div>
+  <div class="label">Interface size</div>
+  <div class="seg" id="setSize"><span class="ind"></span>${[['compact','Compact'],['regular','Regular'],['large','Large']].map(([v,l])=>`<button data-size="${v}" aria-pressed="${SET.uiSize===v}">${l}</button>`).join('')}</div>
+  <div class="label">Color</div>
+  <div class="swatches">${Object.entries(ACCENTS).map(([k,a])=>`<div class="swcol"><button class="swatch-b press" data-accent="${k}" aria-pressed="${SET.accent===k}" aria-label="${a.n}" style="background:${a.a}"><i style="background:${a.g}"></i></button><div class="swl">${a.n}</div></div>`).join('')}</div>
+  <div class="label">Style</div>
+  <div class="seg" id="setStyle"><span class="ind"></span>${[['glass','Liquid glass'],['solid','Solid'],['minimal','Minimal']].map(([v,l])=>`<button data-style="${v}" aria-pressed="${SET.style===v}">${l}</button>`).join('')}</div>
+  <p class="hint">${{glass:'Frosted, refractive panels over the land.',solid:'Opaque panels, no blur. Fastest on older phones.',minimal:'Flat and quiet: no bevels, tighter corners.'}[SET.style]||''}</p>
   ${stg('reduceMotion','Reduce motion','Turns off animations and the terrain morph')}
   ${setRow('Units','',`<div class="seg" id="setUnits" style="width:150px"><span class="ind"></span><button data-u="m" aria-pressed="${SET.units==='m'}">Meters</button><button data-u="ft" aria-pressed="${SET.units==='ft'}">Feet</button></div>`)}
   <div class="label">Sound</div>${stg('sound','Sounds','Soft clicks, sculpting and nature ambience')}${sliderRow('snd.vol','Volume',0,1,.01,SET.volume??.6,.6,v=>Math.round(v*100)+'%')}
   <div class="label">Controls</div>
   ${sliderRow('cam.sens','Camera speed',.4,2,.05,SET.sens,1,v=>(+v).toFixed(2)+'×')}
-  ${stg('invertY','Invert vertical drag')}${stg('leftHand','Left-handed layout','Moves the camera rail to the left')}${stg('haptics','Haptics',IOS?'iPhone taps via iOS 18+ Safari, or full haptics in the test app':'Vibration where the device supports it')}${stg('uiLarge','Larger controls','Bigger buttons and text')}${stg('adaptive','Adaptive resolution','Softer while dragging, sharp when still · saves battery')}${stg('hints','Show tips','Short hints when you switch modes')}
+  ${stg('invertY','Invert vertical drag')}${stg('leftHand','Left-handed layout','Moves the camera rail to the left')}${stg('haptics','Haptics',IOS?'iPhone taps via iOS 18+ Safari, or full haptics in the test app':'Vibration where the device supports it')}${stg('adaptive','Adaptive resolution','Softer while dragging, sharp when still · saves battery')}${stg('hints','Show tips','Hints in panels and when you switch modes')}
   <div class="label">AI</div>
   <p class="hint" style="margin-top:0">${mode==='claude'?'Using Claude through the app you opened this in. No key needed.':mode==='key'?'Using your Anthropic API key on this device.':'AI is off. Inside the Claude app it works automatically. On the website, add an Anthropic API key below.'}</p>
   <input class="field" id="apiKey" type="password" autocomplete="off" placeholder="sk-ant-… (stored only on this device)" value="${esc(SET.apiKey?'••••••••'+SET.apiKey.slice(-4):'')}">
@@ -111,7 +119,10 @@ async function renderSettings(body){
   <div class="label">About</div><p class="hint" style="margin-top:0">Terrain Gen Studio V1 · procedural, sculpted and simulated landscapes. Projects, settings and your key never leave this device unless you export.</p>`;
   bindSliders(body,(k,v)=>{if(k==='snd.vol'){SET.volume=v;auVol()}else SET.sens=v;saveSettings()},k=>k==='snd.vol'?.6:1);
   $$('[data-q]',body).forEach(b=>b.onclick=async()=>{await setQuality(b.dataset.q);renderSettings(body)});
-  const th=$('#setTheme',body);requestAnimationFrame(()=>{segIndicator(th);segIndicator($('#setUnits',body))});
+  const th=$('#setTheme',body);requestAnimationFrame(()=>{segIndicator(th);segIndicator($('#setUnits',body));segIndicator($('#setSize',body));segIndicator($('#setStyle',body))});
+  const pick=(attr,key)=>$$(`[data-${attr}]`,body).forEach(b=>{if(b.closest('#sheet'))return;b.onclick=()=>{SET[key]=b.dataset[attr];saveSettings();applySettings();haptic(8);
+    $$(`[data-${attr}]`,body).forEach(x=>x.setAttribute('aria-pressed',x===b));const sg=b.closest('.seg');if(sg)setTimeout(()=>segIndicator(sg),60);if(key==='style')renderSettings(body)}});
+  pick('size','uiSize');pick('accent','accent');pick('style','style');
   $$('[data-theme]',th).forEach(b=>b.onclick=()=>{SET.theme=b.dataset.theme;saveSettings();applySettings();$$('[data-theme]',th).forEach(x=>x.setAttribute('aria-pressed',x===b));segIndicator(th)});
   $$('[data-u]',body).forEach(b=>b.onclick=()=>{SET.units=b.dataset.u;saveSettings();$$('[data-u]',body).forEach(x=>x.setAttribute('aria-pressed',x===b));segIndicator($('#setUnits',body));renderSheet()});
   $$('input[data-sk]',body).forEach(c=>c.onchange=()=>{SET[c.dataset.sk]=c.checked;saveSettings();applySettings();if(c.dataset.sk==='sound'){if(SET.sound)auInit();else loopsOff();auVol()}});
@@ -124,6 +135,7 @@ async function renderSettings(body){
 }
 function applySettings(){
   const r=document.documentElement;if(SET.theme)r.dataset.theme=SET.theme;else delete r.dataset.theme;
-  document.body.classList.toggle('reduce-motion',!!SET.reduceMotion);document.body.classList.toggle('left-hand',!!SET.leftHand);document.body.classList.toggle('ui-large',!!SET.uiLarge);
+  if(SET.accent&&SET.accent!=='forest')r.dataset.accent=SET.accent;else delete r.dataset.accent;if(SET.style&&SET.style!=='glass')r.dataset.style=SET.style;else delete r.dataset.style;
+  const bc=document.body.classList;bc.toggle('reduce-motion',!!SET.reduceMotion);bc.toggle('left-hand',!!SET.leftHand);bc.toggle('ui-large',SET.uiSize==='large');bc.toggle('ui-regular',SET.uiSize==='regular');bc.toggle('show-tips',!!SET.hints);
   if(typeof layoutSheet==='function'&&typeof insets!=='undefined')requestAnimationFrame(()=>{layoutSheet();if(typeof dockIndicator==='function')dockIndicator()});if(typeof applyQuality==='function'&&typeof geo!=='undefined'&&geo)applyQuality();
 }
