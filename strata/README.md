@@ -76,3 +76,10 @@ A phone-first terrain studio with no build step. It uses Three.js r128 from cdnj
   - Every result gets a beauty pass: detail, weathering, water kept level and below the land, and no leftover sea from the previous landscape. Trees grow only where the picture shows vegetation, never on snow.
   - Hazy blue mountains and misty hills stay land: water needs a wide, clearly colored region with a level shoreline.
 - **Palette from the photo**: class colors are pulled into believable ranges (e.g. haze-blue rock is neutralized) and saved with the creation as "From photo".
+
+**V1.4**
+- **Depth from a single photo**: ground photos are no longer laid out as a wall of mountains.
+  - Each pixel gets a distance from three cues: atmospheric haze (dark-channel estimate), the ground plane below the horizon, and height in the frame.
+  - Going down each column, nearer ridges hide farther ones and slopes are capped at real rock and forest angles.
+  - Every visible point is projected through a ~65° camera to its real place on the map. Far peaks land far away and tall, near hills close and low, valleys open between ridges, and lakes lie flat in front of the mountains. Hidden backsides are filled smoothly.
+  - The result opens from the photographer's eye position.

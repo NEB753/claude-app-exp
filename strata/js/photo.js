@@ -130,6 +130,63 @@ function perspectiveField(R){
     f[k]=Math.max(0,h);veg[k]=c===CL.veg?1:c===CL.dark&&v>vc?.5:c===CL.snow?-.6:0;snow[k]=c===CL.snow&&v>=vc?1:0;dk[k]=c===CL.veg&&F.lum[pk]<.33?1:0}
   return{f:blurField(f,R,Math.max(1,Math.round(R/96))),water:blurField(wat,R,1),veg:blurField(veg,R,Math.round(R/64)+1),snow,dark:dk,relief:aMax};
 }
+/* Ground photo → 3D by depth perception. Depth for every pixel comes from three cues:
+   atmospheric haze (dark-channel prior: farther land is washed toward the sky color), the ground plane below the horizon,
+   and height in the frame. Walking down each image column, a nearer layer can hide a farther one but never the reverse,
+   and slopes can't be steeper than real rock or forest. Every visible pixel is then projected through a pinhole camera
+   (≈65° lens) to a top-down position and height, so far peaks land far away and tall, near hills close and low, and the
+   valleys between ridges open up. Hidden backsides are filled smoothly. */
+function pushPull(val,known,G){
+  const lv=[{v:val,w:known,G}];let v=val,w=known,g=G;
+  while(g>1){const h=Math.ceil(g/2),nv=new Float32Array(h*h),nw=new Float32Array(h*h);
+    for(let j=0;j<g;j++)for(let i=0;i<g;i++){const k=j*g+i,q=(j>>1)*h+(i>>1);nv[q]+=v[k]*w[k];nw[q]+=w[k]}
+    for(let q=0;q<nv.length;q++){if(nw[q]>0)nv[q]/=nw[q];nw[q]=Math.min(1,nw[q])}lv.push({v:nv,w:nw,G:h});v=nv;w=nw;g=h}
+  for(let l=lv.length-2;l>=0;l--){const A=lv[l],B=lv[l+1];for(let j=0;j<A.G;j++)for(let i=0;i<A.G;i++){const k=j*A.G+i;if(A.w[k]>=1)continue;
+    const bv=B.G<2?B.v[0]:sampleField(B.v,B.G,clamp(i/2-.25,0,B.G-1),clamp(j/2-.25,0,B.G-1));A.v[k]=A.v[k]*A.w[k]+bv*(1-A.w[k]);A.w[k]=1}}
+  return lv[0].v}
+function perspectiveDepth(R){
+  const F=REF.F,Rf=F.R,W0=REF.img.naturalWidth||4,H0=REF.img.naturalHeight||3,hf=65*Math.PI/180,fx=(Rf/2)/Math.tan(hf/2),fy=fx*W0/H0,cx=(Rf-1)/2;
+  const ys=Array.from(F.ys);for(let p=0;p<3;p++)for(let i=1;i<Rf-1;i++)ys[i]=(ys[i-1]+ys[i]*2+ys[i+1])/4;
+  let ysMax=0;for(const y of ys)ysMax=Math.max(ysMax,y);
+  const ai=REF.ai,noW=ai&&ai.water_level!=null&&+ai.water_level<=0,LK=findLakes(F,ysMax,noW);
+  let yh=Math.min(Rf*.72,ysMax+Rf*.02);if(LK.lake)yh=Math.min(yh,LK.y0-2);yh=Math.max(yh,Rf*.08);
+  const dmin=.07,camH=dmin*(Rf-1-yh)/fy;
+  /* airlight: the sky just above the skyline */
+  let A=[0,0,0],an=0;for(let i=0;i<Rf;i++)for(let y=Math.max(0,Math.round(ys[i])-8);y<ys[i];y++){const k=y*Rf+i;if(!F.sky[k])continue;A[0]+=F.rgb[k*3];A[1]+=F.rgb[k*3+1];A[2]+=F.rgb[k*3+2];an++}
+  A=an>20?A.map(v=>Math.max(60,v/an)):[225,230,235];
+  const dc=new Float32Array(Rf*Rf);for(let k=0;k<dc.length;k++)dc[k]=Math.min(F.rgb[k*3]/A[0],F.rgb[k*3+1]/A[1],F.rgb[k*3+2]/A[2]);
+  const dm=minmax(dc,Rf,3,false),hz=new Float32Array(Rf*Rf).fill(NaN),vals=[];
+  for(let k=0;k<hz.length;k++){const c=F.cls[k];if(c===CL.sky||c===CL.snow||c===CL.water)continue;hz[k]=-Math.log(Math.max(.05,1-.95*clamp(dm[k],0,1)));vals.push(hz[k])}
+  vals.sort((a,b)=>a-b);const p95=vals.length?vals[Math.floor(vals.length*.95)]||1:1,p5=vals.length?vals[Math.floor(vals.length*.05)]:0;
+  for(let i=0;i<Rf;i++){let last=NaN;for(let y=Rf-1;y>=0;y--){const k=y*Rf+i;if(isNaN(hz[k]))hz[k]=last;else{hz[k]=clamp((hz[k]-p5)/((p95-p5)||1),0,1);last=hz[k]}}
+    let up=NaN;for(let y=0;y<Rf;y++){const k=y*Rf+i;if(isNaN(hz[k]))hz[k]=up;else up=hz[k]}for(let y=0;y<Rf;y++)if(isNaN(hz[y*Rf+i]))hz[y*Rf+i]=.5}/* snow takes the depth of the rock under it */
+  blurField(hz,Rf,3);
+  /* raw distance (0..1 of the map depth) */
+  const raw=new Float32Array(Rf*Rf);
+  for(let i=0;i<Rf;i++)for(let y=0;y<Rf;y++){const k=y*Rf+i,yy=Math.max(y,ys[i]);let D;
+    if(yy<yh){const g=.35+.6*Math.pow((yh-yy)/Math.max(yh,1),.6);D=.55*hz[k]+.45*g}
+    else{const dp=clamp((camH*fy/Math.max(.5,yy-yh)-dmin)/(1-dmin),0,1);D=F.cls[k]===CL.water?dp:Math.min(dp,lerp(dp,hz[k],.35))}
+    raw[k]=dmin+(1-dmin)*clamp(D,0,1)}
+  blurField(raw,Rf,2);
+  /* occlusion order + slope limit, top to bottom */
+  const dist=new Float32Array(Rf*Rf);
+  for(let i=0;i<Rf;i++){let prev=-1;for(let y=Math.floor(ys[i]);y<Rf;y++){const k=y*Rf+i,c=F.cls[k],tn=c===CL.veg||c===CL.dark?.75:c===CL.snow?1:1.25;
+    const allow=prev<0?raw[k]:prev-prev/(fy*tn);const d=Math.max(dmin,Math.min(raw[k],allow));dist[k]=d;prev=d}}
+  /* project and splat (keep the highest surface seen in each cell) */
+  const G=Math.min(256,Math.max(160,R)),hm=new Float32Array(G*G),kn=new Float32Array(G*G),cv=new Float32Array(G*G),cs=new Float32Array(G*G),cw=new Float32Array(G*G),cd=new Float32Array(G*G),cn=new Float32Array(G*G);let Ymax=0;
+  for(let i=0;i<Rf;i++)for(let y=Math.ceil(ys[i]);y<Rf;y++){const k=y*Rf+i,d=dist[k];if(!(d>0))continue;const c=F.cls[k];
+    const Y=Math.max(0,camH+(yh-y)/fy*d),u=.5+(i-cx)/Rf*(.6+.4*Math.sqrt(d)),v=1-d,gi=Math.round(u*(G-1)),gj=Math.round(v*(G-1));if(gi<0||gj<0||gi>=G||gj>=G)continue;
+    const q=gj*G+gi;if(!kn[q]||Y>hm[q]){hm[q]=Y;kn[q]=1}cn[q]++;if(c===CL.veg)cv[q]++;else if(c===CL.dark)cv[q]+=.5;if(c===CL.snow)cs[q]++;if(LK.mask[k])cw[q]++;if(c===CL.veg&&F.lum[k]<.33)cd[q]++;Ymax=Math.max(Ymax,Y)}
+  for(let q=0;q<G*G;q++)if(cn[q]){cv[q]/=cn[q];cs[q]/=cn[q];cw[q]/=cn[q];cd[q]/=cn[q];if(cw[q]>.4)hm[q]=0}
+  const known=kn.slice(),filled=pushPull(hm,kn,G),fillA=a=>pushPull(a,known.slice(),G);
+  /* hidden backsides settle a little below the ridges that hide them */
+  for(let q=0;q<G*G;q++)if(!known[q])filled[q]*=.82;
+  const f=resample(filled,G,R),water=resample(fillA(cw),G,R),veg=resample(fillA(cv),G,R),snow=resample(fillA(cs),G,R),dark=resample(fillA(cd),G,R);
+  for(let k=0;k<f.length;k++){f[k]=Math.max(0,f[k]/(Ymax||1));water[k]=water[k]>.45?1:0}
+  for(let k=0;k<veg.length;k++)if(snow[k]>.4)veg[k]=-.6;
+  blurField(f,R,Math.max(1,Math.round(R/128)));
+  return{f,water:blurField(water,R,1),veg:blurField(veg,R,Math.round(R/96)+1),snow,dark,maxH:clamp(Ymax*S.shape.world,80,1500),eye:{h:camH/(Ymax||1),yh,fy}};
+}
 /* Top-down image → heights: shape from shading in the light direction that agrees best with land cover
    (water low, snow and bare rock high), blended with that land-cover prior and the distance from water. */
 function aerialField(R,ai,forceShade){
@@ -236,7 +293,7 @@ async function buildFromPhoto(){
         :F.kind==='perspective'?'depth':F.kind}
     J.step(2,'Planning heights ('+PHOTO_MODES[mode].n.toLowerCase()+')');await nextFrame();
     const R=N,base=ai&&mode!=='height'&&mode!=='sketch'?aiGridField(R):null;let r,flipped=false;
-    if(mode==='depth')r=perspectiveField(R);
+    if(mode==='depth'){try{r=perspectiveDepth(R)}catch(e){console.warn(e)}if(!r||!r.f||r.f.some(v=>isNaN(v)))r=perspectiveField(R)}
     else if(mode==='aerial'||mode==='shaded')r=aerialField(R,ai,mode==='shaded');
     else if(mode==='sketch')r={f:sketchField(R)};
     else{let L=resample(REF.lum,REF.R,R);if(P.invert)for(let k=0;k<L.length;k++)L[k]=1-L[k];r={f:blurField(L,R,Math.round(P.blur*R/257)+(mode==='height'?0:2))};if(mode==='contour'&&base)r.f=base}
@@ -246,7 +303,7 @@ async function buildFromPhoto(){
     J.step(3);await nextFrame();
     if(P.blur>0&&mode!=='height')blurField(f,R,Math.round(P.blur*R/514));
     J.step(4);await nextFrame();
-    if(mode==='depth'&&r.relief!=null)S.shape.maxH=Math.round(clamp(S.shape.world*(.07+.42*r.relief),120,1200));/* peaks as tall as they look in the photo */
+    if(mode==='depth'&&r.maxH)S.shape.maxH=Math.round(r.maxH);else if(mode==='depth'&&r.relief!=null)S.shape.maxH=Math.round(clamp(S.shape.world*(.07+.42*r.relief),120,1200));/* peaks as tall as they look in the photo */
     const sea=beautify(f,R,r.water||null,P.detail);
     H=new Float32Array(N*N);const mh=S.shape.maxH*(.3+P.height*1.4);for(let k=0;k<H.length;k++)H[k]=f[k]*mh;prevMaxH=S.shape.maxH;
     S.source='photo';S.preset='Photo';clearLayers(false);S.structs=[];
@@ -277,7 +334,9 @@ async function buildFromPhoto(){
       S.structs=st;if(st.length){S.scatter.on=true;S.scatter.types.structure.on=true}
     }else J.step(6);
     genMoist();fluidSync();updateAll();morphFrom(old);
-    if(mode==='depth')animateCam({r:S.shape.world*1.15,phi:1.28,theta:0,tx:0,ty:stats.hi*.3*S.view.vex,tz:S.shape.world*.05},900);else frame(true);/* open on the photographer's view */
+    if(mode==='depth'){/* open where the photographer stood: near edge, eye height, looking into the scene */
+      const W=S.shape.world,vex=S.view.vex,gz=hAt((N-1)/2,(N-1)*.97)*vex,eye=Math.max(gz+W*.02,(r.eye?r.eye.h*S.shape.maxH*(.3+P.height*1.4):0)*vex+gz*.5),ph=1.5,rr=W*.6;
+      animateCam({r:rr,phi:ph,theta:0,tx:0,ty:eye-rr*Math.cos(ph),tz:W*.52-rr*Math.sin(ph)},1100)}else frame(true);/* open on the photographer's view */
     saveSoon();
     J.done((flipped?'Hills were inverted in the image, so they were flipped right side up. ':'')+'Read as '+PHOTO_MODES[mode].n.toLowerCase()+(REF.ai?', guided by the AI reading.':'.'));
   }catch(err){console.error(err);J.fail('Could not build: '+(err.message||err))}
