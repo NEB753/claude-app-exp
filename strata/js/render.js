@@ -66,6 +66,69 @@ function rockTexture(T){return texOut(T,(u,v)=>{
 function cloudTexture(){return texOut(128,(u,v)=>{const c=pfbm(u*3,v*3,3,77,4,.5);return[c,c,c,1]})}
 const DT=QUALITY[S.quality]&&QUALITY[S.quality].res<=129?256:512;
 const CU={uGround:{value:groundTexture(DT)},uRock:{value:rockTexture(DT)},uDetail:{value:1},uContour:{value:0},uInterval:{value:25},uLine:{value:new THREE.Color(0x1b2228)},uTime:{value:0},uClouds:{value:1},uCloudTex:{value:cloudTexture()},uWorld:{value:3000}};
+/* ---- real PBR textures (Poly Haven, CC0): shipped in tex/ at 1K/2K/4K, Poly Haven CDN as fallback ----
+   Each texture is divided by its own average color, so it adds real structure (grass blades, pebbles, rock fractures,
+   wind-packed snow) while the biome palette (or a palette from your photo) still decides the overall color. */
+const TEX_PH={"grass": {"diff": {"1k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rocky_terrain_02/rocky_terrain_02_diff_1k.jpg", "2k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rocky_terrain_02/rocky_terrain_02_diff_2k.jpg", "4k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/rocky_terrain_02/rocky_terrain_02_diff_4k.jpg"}, "nor": {"1k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rocky_terrain_02/rocky_terrain_02_nor_gl_1k.jpg", "2k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rocky_terrain_02/rocky_terrain_02_nor_gl_2k.jpg", "4k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/rocky_terrain_02/rocky_terrain_02_nor_gl_4k.jpg"}}, "dry": {"diff": {"1k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/coast_sand_01/coast_sand_01_diff_1k.jpg", "2k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/coast_sand_01/coast_sand_01_diff_2k.jpg", "4k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/coast_sand_01/coast_sand_01_diff_4k.jpg"}, "nor": {"1k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/coast_sand_01/coast_sand_01_nor_gl_1k.jpg", "2k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/coast_sand_01/coast_sand_01_nor_gl_2k.jpg", "4k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/coast_sand_01/coast_sand_01_nor_gl_4k.jpg"}}, "rock": {"diff": {"1k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/aerial_rocks_02/aerial_rocks_02_diff_1k.jpg", "2k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/aerial_rocks_02/aerial_rocks_02_diff_2k.jpg", "4k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/aerial_rocks_02/aerial_rocks_02_diff_4k.jpg"}, "nor": {"1k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/aerial_rocks_02/aerial_rocks_02_nor_gl_1k.jpg", "2k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/aerial_rocks_02/aerial_rocks_02_nor_gl_2k.jpg", "4k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/aerial_rocks_02/aerial_rocks_02_nor_gl_4k.jpg"}}, "snow": {"diff": {"1k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/snow_field_aerial/snow_field_aerial_col_1k.jpg", "2k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/snow_field_aerial/snow_field_aerial_col_2k.jpg", "4k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/snow_field_aerial/snow_field_aerial_col_4k.jpg"}, "nor": {"1k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/snow_field_aerial/snow_field_aerial_nor_gl_1k.jpg", "2k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/snow_field_aerial/snow_field_aerial_nor_gl_2k.jpg", "4k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/snow_field_aerial/snow_field_aerial_nor_gl_4k.jpg"}}, "sand": {"diff": {"1k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/aerial_beach_01/aerial_beach_01_diff_1k.jpg", "2k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/aerial_beach_01/aerial_beach_01_diff_2k.jpg", "4k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/aerial_beach_01/aerial_beach_01_diff_4k.jpg"}, "nor": {"1k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/aerial_beach_01/aerial_beach_01_nor_gl_1k.jpg", "2k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/aerial_beach_01/aerial_beach_01_nor_gl_2k.jpg", "4k": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/aerial_beach_01/aerial_beach_01_nor_gl_4k.jpg"}}};
+const TEXM={grass:{tile:22},dry:{tile:26},rock:{tile:30},snow:{tile:38},sand:{tile:18}};
+const TU={tG:{value:null},tD:{value:null},tR:{value:null},tS:{value:null},tN:{value:null},nG:{value:null},nD:{value:null},nR:{value:null},nS:{value:null},nN:{value:null},
+  mG:{value:new THREE.Vector3(1,1,1)},mD:{value:new THREE.Vector3(1,1,1)},mR:{value:new THREE.Vector3(1,1,1)},mS:{value:new THREE.Vector3(1,1,1)},mN:{value:new THREE.Vector3(1,1,1)},uTile:{value:new THREE.Vector4(22,26,30,38)},uTileS:{value:18},uNorS:{value:1}};
+const TEXKEY={grass:['tG','nG','mG'],dry:['tD','nD','mD'],rock:['tR','nR','mR'],snow:['tN','nN','mN'],sand:['tS','nS','mS']};
+let texQ=null,texState='none';
+function texPlan(q){return q==='battery'?{d:'1k',n:null}:q==='balanced'?{d:'1k',n:'1k'}:q==='pro'?{d:'2k',n:'2k'}:{d:'4k',n:'2k'}}
+function loadImg(urls){return new Promise((res,rej)=>{let i=0;const next=()=>{if(i>=urls.length){rej(new Error('texture unavailable'));return}const im=new Image();im.crossOrigin='anonymous';im.decoding='async';im.onload=()=>res(im);im.onerror=()=>{i++;next()};im.src=urls[i]};next()})}
+function imgMean(im){const c=document.createElement('canvas');c.width=c.height=8;const x=c.getContext('2d');x.drawImage(im,0,0,8,8);const d=x.getImageData(0,0,8,8).data;let r=0,g=0,b=0;for(let k=0;k<64;k++){r+=toLin(d[k*4]);g+=toLin(d[k*4+1]);b+=toLin(d[k*4+2])}return new THREE.Vector3(r/64,g/64,b/64)}
+function mkTex(im,srgb){const t=new THREE.Texture(im);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.encoding=srgb?THREE.sRGBEncoding:THREE.LinearEncoding;t.anisotropy=renderer.capabilities.getMaxAnisotropy();t.generateMipmaps=true;t.minFilter=THREE.LinearMipmapLinearFilter;t.needsUpdate=true;return t}
+async function loadTerrainTextures(force){
+  const q=S.quality;if(texQ===q&&!force)return;texQ=q;const P=texPlan(q);texState='loading';
+  const jobs=Object.keys(TEXM).map(async m=>{const k=TEXKEY[m],dr=P.d==='4k'&&!(m==='grass'||m==='rock')?'2k':P.d;
+    const im=await loadImg(['tex/'+m+'_diff_'+dr+'.jpg',TEX_PH[m].diff[dr]]);if(texQ!==q)return;
+    const old=TU[k[0]].value;TU[k[0]].value=mkTex(im,true);TU[k[2]].value=imgMean(im);if(old)old.dispose();
+    if(P.n){const nm=await loadImg(['tex/'+m+'_nor_'+P.n+'.jpg',TEX_PH[m].nor[P.n]]);if(texQ!==q)return;const o2=TU[k[1]].value;TU[k[1]].value=mkTex(nm,false);if(o2)o2.dispose()}});
+  try{await Promise.all(jobs);if(texQ!==q)return;const mt=MATS.natural;mt.defines=mt.defines||{};const had=('REAL_TEX' in mt.defines)&&(('TEX_NOR' in mt.defines)===!!P.n);
+    mt.defines.REAL_TEX='';if(P.n)mt.defines.TEX_NOR='';else delete mt.defines.TEX_NOR;if(!had)mt.needsUpdate=true;texState='ready';dirty=true}
+  catch(e){texState='failed';console.warn('Real textures unavailable, using procedural detail',e)}
+}
+const REAL_GLSL=`#ifdef REAL_TEX
+uniform sampler2D tG,tD,tR,tS,tN;uniform vec3 mG,mD,mR,mS,mN;uniform vec4 uTile;uniform float uTileS;uniform float uNorS;varying vec4 vSpl;
+#ifdef TEX_NOR
+uniform sampler2D nG,nD,nR,nS,nN;
+#endif
+vec3 tdet(sampler2D t,vec2 uv,vec3 m){vec3 c=texture2D(t,uv).rgb;vec3 r=pow(c,vec3(2.2))/max(m,vec3(.015));float l=dot(r,vec3(.3,.55,.15));return mix(vec3(l),r,.3);}/* custom samplers are not sRGB-decoded by three; mostly brightness so the palette keeps its hue *//* custom samplers are not sRGB-decoded by three */
+float wG,wD,wR,wS,wN,wT;vec3 tAn;
+#endif
+`;
+const REAL_MAP=`#ifdef REAL_TEX
+{vec3 wp=vec3(vWXZ.x,vWY,vWXZ.y);vec3 Nw=normalize(vWN);tAn=pow(abs(Nw),vec3(4.));tAn/=tAn.x+tAn.y+tAn.z;
+  wR=vSpl.x;wN=vSpl.y;wS=vSpl.z;wD=vSpl.w;wG=max(0.,1.-wR-wN-wS-wD);
+  float sl=1.-clamp(Nw.y,0.,1.),ex=smoothstep(.36,.62,sl)*(1.-wN);float sc=1.-ex;wG*=sc;wD*=sc;wS*=sc;wR=wR*sc+ex;wT=wG+wD+wR+wS+wN+1e-4;
+  float mac=texture2D(uCloudTex,wp.xz/(uWorld*.35)).r;/* breaks up tiling */
+  /* two tile sizes picked by viewing distance (x5 apart) and blended, so close-ups show pebbles and blades while
+     map views show the large patterns of the same aerial texture instead of a flat average */
+  float lv=clamp(log(max(length(vViewPosition),1.)/45.)/1.609,0.,3.),l0=floor(lv),lf=smoothstep(.15,.85,lv-l0),s0=pow(5.,l0),s1=s0*5.;
+  vec2 uG=wp.xz/uTile.x;vec3 g0=mix(tdet(tG,uG/s0,mG),tdet(tG,uG*.31/s0+vec2(.37,.11),mG),smoothstep(.38,.62,mac));vec3 g=mix(g0,tdet(tG,uG/s1+vec2(.21,.63),mG),lf);
+  vec3 d=mix(tdet(tD,wp.xz/(uTile.y*s0),mD),tdet(tD,wp.xz/(uTile.y*s1),mD),lf),s=tdet(tS,wp.xz/(uTileS*s0),mS),n=mix(tdet(tN,wp.xz/(uTile.w*s0),mN),tdet(tN,wp.xz/(uTile.w*s1),mN),lf);
+  float rs0=uTile.z*s0,rs1=uTile.z*s1;
+  vec3 r=mix(tdet(tR,wp.zy/rs0,mR)*tAn.x+tdet(tR,wp.xz/rs0,mR)*tAn.y+tdet(tR,wp.xy/rs0,mR)*tAn.z,tdet(tR,wp.zy/rs1,mR)*tAn.x+tdet(tR,wp.xz/rs1,mR)*tAn.y+tdet(tR,wp.xy/rs1,mR)*tAn.z,lf);
+  vec3 det=(g*wG+d*wD+r*wR+s*wS+n*wN)/wT;det=clamp(det,.3,2.);
+  float far=1.-smoothstep(uWorld*.7,uWorld*2.2,length(vViewPosition))*.5;
+  diffuseColor.rgb*=mix(vec3(1.),det,uDetail*far*.92);}
+#else
+`;
+const REAL_NOR=`#if defined(REAL_TEX)&&defined(TEX_NOR)
+{vec3 wp=vec3(vWXZ.x,vWY,vWXZ.y);vec3 o=vec3(0.);vec3 t;
+  t=texture2D(nG,wp.xz/uTile.x).xyz*2.-1.;o+=vec3(t.x,0.,t.y)*wG;
+  t=texture2D(nD,wp.xz/uTile.y).xyz*2.-1.;o+=vec3(t.x,0.,t.y)*wD;
+  t=texture2D(nS,wp.xz/uTileS).xyz*2.-1.;o+=vec3(t.x,0.,t.y)*wS;
+  t=texture2D(nN,wp.xz/uTile.w).xyz*2.-1.;o+=vec3(t.x,0.,t.y)*wN;
+  t=texture2D(nR,wp.zy/uTile.z).xyz*2.-1.;o+=vec3(0.,t.y,t.x)*wR*tAn.x;
+  t=texture2D(nR,wp.xz/uTile.z).xyz*2.-1.;o+=vec3(t.x,0.,t.y)*wR*tAn.y;
+  t=texture2D(nR,wp.xy/uTile.z).xyz*2.-1.;o+=vec3(t.x,t.y,0.)*wR*tAn.z;
+  vec3 nW=normalize(normalize(vWN)+o/wT*uNorS*uDetail);normal=normalize((viewMatrix*vec4(nW,0.)).xyz);}
+#elif !defined(REAL_TEX)
+normal=perturbD(-vViewPosition,normal,dH,.7*uDetail);
+#endif
+`;
 const DETAIL_GLSL=`uniform sampler2D uGround;uniform sampler2D uRock;uniform float uDetail;varying vec3 vWN;float dH=.5;
 vec3 perturbD(vec3 p,vec3 n,float h,float k){vec3 dpx=dFdx(p),dpy=dFdy(p);vec3 r1=cross(dpy,n),r2=cross(n,dpx);float det=dot(dpx,r1);vec2 g=vec2(dFdx(h),dFdy(h))*k;vec3 gr=sign(det)*(g.x*r1+g.y*r2);return normalize(abs(det)*n-gr);}
 `;
@@ -80,8 +143,9 @@ function withContours(mat,detail){
   mat.extensions={derivatives:true};
   mat.onBeforeCompile=sh=>{
     Object.assign(sh.uniforms,CU);
-    sh.vertexShader='varying float vWY;varying vec2 vWXZ;varying vec3 vWN;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvec4 wpS=modelMatrix*vec4(transformed,1.0);vWY=wpS.y;vWXZ=wpS.xz;vWN=mat3(modelMatrix)*objectNormal;');
-    if(detail)sh.fragmentShader=DETAIL_GLSL+sh.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\n'+DETAIL_MAP).replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\nnormal=perturbD(-vViewPosition,normal,dH,.7*uDetail);');
+    Object.assign(sh.uniforms,TU);
+    sh.vertexShader='varying float vWY;varying vec2 vWXZ;varying vec3 vWN;attribute vec4 splat;varying vec4 vSpl;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvec4 wpS=modelMatrix*vec4(transformed,1.0);vWY=wpS.y;vWXZ=wpS.xz;vWN=mat3(modelMatrix)*objectNormal;vSpl=splat;');
+    if(detail)sh.fragmentShader=DETAIL_GLSL+REAL_GLSL+sh.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\n'+REAL_MAP+DETAIL_MAP+'\n#endif\n').replace('#include <normal_fragment_maps>','#include <normal_fragment_maps>\n'+REAL_NOR);
     sh.fragmentShader='varying float vWY;varying vec2 vWXZ;uniform float uContour;uniform float uInterval;uniform vec3 uLine;uniform float uTime;uniform float uClouds;uniform sampler2D uCloudTex;uniform float uWorld;\n'+sh.fragmentShader.replace('#include <fog_fragment>',
       `if(uContour>.5){float c=vWY/uInterval;float w=max(fwidth(c),1e-4);float f=abs(fract(c-.5)-.5)/w;float ln=1.-min(f,1.);float idx=floor(c+.5);float maj=1.-step(.01,abs(mod(idx,5.)));gl_FragColor.rgb=mix(gl_FragColor.rgb,uLine,ln*mix(.32,.72,maj));}if(uClouds>.5){float cl=texture2D(uCloudTex,vWXZ/uWorld*1.15+vec2(uTime*.0045,uTime*.0028)).r;gl_FragColor.rgb*=mix(1.,.74,smoothstep(.56,.78,cl));}
 #include <fog_fragment>`);
@@ -117,13 +181,18 @@ function buildGeometry(){
   for(let j=0;j<N;j++)for(let i=0;i<N;i++){const k=j*N+i;uv[k*2]=i/(N-1);uv[k*2+1]=1-j/(N-1)}
   let q=0;for(let j=0;j<N-1;j++)for(let i=0;i<N-1;i++){const a=j*N+i,b=a+N,c=a+1,d=b+1;idx[q++]=a;idx[q++]=b;idx[q++]=c;idx[q++]=c;idx[q++]=b;idx[q++]=d}
   for(const [name,arr] of [['position',pos],['normal',new Float32Array(N*N*3)],['color',new Float32Array(N*N*3)]]){const at=new THREE.BufferAttribute(arr,3);at.setUsage(THREE.DynamicDrawUsage);geo.setAttribute(name,at)}
+  {const at=new THREE.BufferAttribute(new Float32Array(N*N*4),4);at.setUsage(THREE.DynamicDrawUsage);geo.setAttribute('splat',at)}
   geo.setAttribute('uv',new THREE.BufferAttribute(uv,2));geo.setIndex(new THREE.BufferAttribute(idx,1));
   terrain=new THREE.Mesh(geo,MATS[S.view.look]||MATS.natural);terrain.castShadow=terrain.receiveShadow=true;terrain.frustumCulled=false;scene.add(terrain);
 }
 let baseDirty=false;
+/* brush dabs only mark the area; it is rebuilt once per frame (big win on 513² and 1025² grids) */
+const DR={on:false,i0:0,j0:0,i1:0,j1:0};
+function markRegion(i0,j0,i1,j1){if(!DR.on){DR.on=true;DR.i0=i0;DR.j0=j0;DR.i1=i1;DR.j1=j1}else{DR.i0=Math.min(DR.i0,i0);DR.j0=Math.min(DR.j0,j0);DR.i1=Math.max(DR.i1,i1);DR.j1=Math.max(DR.j1,j1)}dirty=true}
+function flushRegion(){if(!DR.on)return;DR.on=false;updateRegion(DR.i0,DR.j0,DR.i1,DR.j1)}
 function updateRegion(i0,j0,i1,j1){
   i0=clamp(i0|0,0,N-1);j0=clamp(j0|0,0,N-1);i1=clamp(Math.ceil(i1),0,N-1);j1=clamp(Math.ceil(j1),0,N-1);
-  const pos=geo.attributes.position.array,nor=geo.attributes.normal.array,col=geo.attributes.color.array,W=S.shape.world,cell=W/(N-1),vex=S.view.vex,colors=S.view.look==='natural'||S.view.look==='heat';
+  const pos=geo.attributes.position.array,nor=geo.attributes.normal.array,col=geo.attributes.color.array,spl=geo.attributes.splat.array,W=S.shape.world,cell=W/(N-1),vex=S.view.vex,colors=S.view.look==='natural'||S.view.look==='heat';
   for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){
     const k=j*N+i,h=H[k],k3=k*3;
     pos[k3]=(i/(N-1)-.5)*W;pos[k3+1]=h*vex;pos[k3+2]=(j/(N-1)-.5)*W;
@@ -131,9 +200,9 @@ function updateRegion(i0,j0,i1,j1){
     let nx=(hl-hr)*vex,ny=2*cell,nz=(hu-hd)*vex;const l=1/Math.hypot(nx,ny,nz);nx*=l;ny*=l;nz*=l;
     nor[k3]=nx;nor[k3+1]=ny;nor[k3+2]=nz;
     if(colors){const ao=clamp(1+((h-(hl+hr+hu+hd)/4)/cell)*1.4,.66,1.12),c=colorAt(h,ny,M[k],ao,PC[k3],PC[k3+1],PC[k3+2],PW[k],WM[k]);
-      col[k3]=toLin(c[0]);col[k3+1]=toLin(c[1]);col[k3+2]=toLin(c[2]);if(S.view.mask&&MK[k]>.01){const t=MK[k]*.55;col[k3]=lerp(col[k3],.9,t);col[k3+1]=lerp(col[k3+1],.52,t);col[k3+2]=lerp(col[k3+2],.06,t)}}
+      col[k3]=toLin(c[0]);col[k3+1]=toLin(c[1]);col[k3+2]=toLin(c[2]);const k4=k*4;spl[k4]=SPL[0];spl[k4+1]=SPL[1];spl[k4+2]=SPL[2];spl[k4+3]=SPL[3];if(S.view.mask&&MK[k]>.01){const t=MK[k]*.55;col[k3]=lerp(col[k3],.9,t);col[k3+1]=lerp(col[k3+1],.52,t);col[k3+2]=lerp(col[k3+2],.06,t)}}
   }
-  for(const a of ['position','normal','color']){const at=geo.attributes[a];at.updateRange.offset=j0*N*3;at.updateRange.count=(j1-j0+1)*N*3;at.needsUpdate=true}
+  for(const a of ['position','normal','color','splat']){const at=geo.attributes[a],c=at.itemSize;at.updateRange.offset=j0*N*c;at.updateRange.count=(j1-j0+1)*N*c;at.needsUpdate=true}
   if(i0===0||j0===0||i1===N-1||j1===N-1)baseDirty=true;
   dirty=true;shadowDirty();
 }
@@ -244,10 +313,10 @@ function applyTheme(){
   ring.material.color.set(cs.getPropertyValue('--gold').trim()||'#d9ae4a');CU.uLine.value.set(dark?0xe8eef2:0x1b2228);buildEnv(dark);
   const tc=document.querySelector('meta[name=theme-color]');if(tc)tc.content=sky;dirty=true;
 }
-function applyQuality(){const Q=QUALITY[S.quality],hq=typeof CAM!=='undefined'&&CAM.on&&S.cam.hq;RQ.full=Math.min(window.devicePixelRatio||1,Q.dpr*(hq?1.3:1));RQ.cur=RQ.full;RQ.low=false;renderer.setPixelRatio(RQ.full);resize();fitSun()}
+function applyQuality(){loadTerrainTextures();const Q=QUALITY[S.quality],hq=typeof CAM!=='undefined'&&CAM.on&&S.cam.hq;RQ.full=Math.min(window.devicePixelRatio||1,Q.dpr*(hq?1.3:1));RQ.cur=RQ.full;RQ.low=false;renderer.setPixelRatio(RQ.full);resize();fitSun()}
 /* adaptive resolution: render a little softer while you drag, snap back to full sharpness 300 ms after you stop */
 function adaptDPR(now,active){if(!SET.adaptive||RQ.full<=1.3||(typeof CAM!=='undefined'&&CAM.rec))return;
-  if(active){RQ.idleT=now;if(!RQ.low){RQ.low=true;RQ.cur=Math.max(1,Math.min(RQ.full*.62,1.6));renderer.setPixelRatio(RQ.cur);renderer.setSize(innerWidth,innerHeight,false)}}
+  if(active){RQ.idleT=now;if(!RQ.low){RQ.low=true;const hi=S.quality==='pro'||S.quality==='ultra';RQ.cur=hi?Math.max(1.5,RQ.full*.8):Math.max(1,Math.min(RQ.full*.62,1.6));renderer.setPixelRatio(RQ.cur);renderer.setSize(innerWidth,innerHeight,false)}}
   else if(RQ.low&&now-RQ.idleT>300){RQ.low=false;RQ.cur=RQ.full;renderer.setPixelRatio(RQ.full);renderer.setSize(innerWidth,innerHeight,false);dirty=true}}
 
 /* ---------------- camera ---------------- */

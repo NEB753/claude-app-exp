@@ -80,3 +80,11 @@ function openNodeGuide(focusType){
   if(focusType){const c=$('#ng_'+focusType);c&&c.scrollIntoView({block:'center'})}
   if(!NG.raf)NG.raf=requestAnimationFrame(ngLoop);
 }
+
+Object.assign(NODE_DOCS,{lf_tectonic:['Mountain chains rise where plates meet.','Feed in Noise as Base for varied plate interiors.'],lf_fjords:['Glacial U valleys that the sea floods.','Pair with Sea floor and a high sea level in Biome.'],
+  lf_glacial:['U-shaped valleys with sharp horns.','Add Weathering after it to soften the walls.'],lf_badlands:['Soft layered rock cut by gullies.','Use an arid palette and low max height.'],
+  lf_karst:['Steep limestone towers over flat floors.','Increase Amount for taller towers; add Rivers on the floor.'],lf_rift:['A long valley between two escarpments.','Rotate it by changing the Seed.'],
+  lf_plateau:['Caprock tablelands with eroded edges.','Follow with Canyons for mesa country.'],lf_atoll:['A reef ring around a lagoon.','Set sea level about a third up in Biome.'],
+  rugged:['Craggy, broken mountain noise.','Cragginess mixes in broken billows for rough rock.'],shear:['Slides bands of land sideways, like faults.','Small Offset reads as fault lines.'],
+  slump:['Steep slopes slide down and soften.','Run after sharp generators to settle them.'],sealevel:['Flattens everything below a level into a sea floor.','Shelf keeps some underwater shape.'],
+  talus:['Mask of debris fans below cliffs.','Use it to paint scree or place boulders.'],snowmask:['Where snow would settle: high and not too steep.','Feed into a color or scatter step.']});

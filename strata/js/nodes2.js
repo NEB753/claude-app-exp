@@ -53,3 +53,24 @@ function curveEditor(host,pts,onChange){
   sv.onpointermove=e=>{if(drag<0)return;const [px,py]=pos(e),p=pts[drag];if(drag===0)p[0]=0;else if(drag===pts.length-1)p[0]=1;else p[0]=clamp(ix(px),pts[drag-1][0]+.01,pts[drag+1][0]-.01);p[1]=iy(py);draw();onChange(pts)};
   sv.onpointerup=sv.onpointercancel=()=>{drag=-1};
 }
+
+/* ---- landform and Gaea-style nodes ---- */
+(function(){const LFN=(k,label)=>({cat:'Generate',label,color:'#4f7fe0',ins:['Base'],params:{amount:P_('Amount',0,1,.01,1),seed:P_('Seed',0,999,1,21)},
+  fn(c,[a],p){const R=c.R,f=a?a.slice():grid(R,(u,v)=>fbm(makeNoise(c.seed+p.seed),u*2.4,v*2.4,6,.5)*.5+.5);return applyLandform(normalizeField(f),R,k,c.seed+p.seed*131,p.amount)}});
+  for(const k of ['tectonic','fjords','glacial','badlands','karst','rift','plateau','atoll'])NODE_TYPES['lf_'+k]=LFN(k,LANDFORMS[k].n);})();
+Object.assign(NODE_TYPES,{
+  rugged:{cat:'Generate',label:'Rugged',color:'#5b8def',ins:[],params:{scale:P_('Scale',.5,10,.1,3),crag:P_('Cragginess',0,1,.01,.6),seed:P_('Seed',0,999,1,22)},
+    fn(c,_,p){const n=makeNoise(c.seed+p.seed*131),o=octCap(7,c.R,p.scale);return grid(c.R,(u,v)=>{const r=ridged(n,u*p.scale,v*p.scale,o,.5),b=Math.abs(fbm(n,u*p.scale*2+9,v*p.scale*2,o,.55));return lerp(r,r*(1-p.crag*.6)+b*p.crag*.6,.8)})}},
+  shear:{cat:'Modify',label:'Shear',color:'#a46be8',ins:['In'],params:{bands:P_('Bands',2,30,1,9),offset:P_('Offset',0,.2,.005,.04),angle:P_('Angle',0,180,1,30),seed:P_('Seed',0,999,1,23)},
+    fn(c,[a],p){const R=c.R,A=p.angle*Math.PI/180,ca=Math.cos(A),sa=Math.sin(A),rn=mulberry32(c.seed+p.seed);const off=Array.from({length:64},()=>(rn()-.5)*2*p.offset);
+      return grid(R,(u,v)=>{const t=(u-.5)*ca+(v-.5)*sa,b=Math.floor((t+1)*p.bands)&63,d=off[b];return sampleField(a,R,clamp(u+d*-sa,0,1)*(R-1),clamp(v+d*ca,0,1)*(R-1))})}},
+  slump:{cat:'Erosion',label:'Slump',color:'#2fa38a',ins:['In'],params:{angle:P_('Stable angle',10,50,1,28),amount:P_('Amount',0,1,.01,.6)},
+    fn(c,[a],p){const R=c.R,f=a.slice(),tal=Math.tan(p.angle*Math.PI/180)*(1/(R-1))*3;for(let i=0;i<Math.round(6+p.amount*20);i++)thermalPass(f,R,tal);const b=blurField(f.slice(),R,1);for(let k=0;k<f.length;k++)f[k]=lerp(a[k],lerp(f[k],b[k],.5),p.amount);return f},heavy:true},
+  sealevel:{cat:'Modify',label:'Sea floor',color:'#a46be8',ins:['In'],params:{level:P_('Level',0,.8,.01,.2),shelf:P_('Shelf',0,1,.01,.6)},
+    fn(c,[a],p){const o=new Float32Array(a.length);for(let k=0;k<a.length;k++){const h=a[k];o[k]=h>=p.level?h:lerp(h,p.level-(p.level-h)*.25,p.shelf)}return o}},
+  talus:{cat:'Mask',label:'Talus (debris)',color:'#d9902f',ins:['In'],params:{reach:P_('Reach',1,10,1,4),steep:P_('Cliff angle',20,70,1,40)},
+    fn(c,[a],p){const R=c.R,cell=1/(R-1),cliff=new Float32Array(R*R);for(let j=1;j<R-1;j++)for(let i=1;i<R-1;i++){const k=j*R+i,s=Math.hypot(a[k+1]-a[k-1],a[k+R]-a[k-R])/(2*cell)*.25;cliff[k]=s>Math.tan(p.steep*Math.PI/180)*.25?1:0}
+      const sp=blurField(cliff,R,Math.round(p.reach*R/128)+1),o=new Float32Array(R*R);for(let k=0;k<o.length;k++)o[k]=clamp(sp[k]*3*(1-cliff[k]),0,1);return o}},
+  snowmask:{cat:'Mask',label:'Snow field',color:'#d9902f',ins:['In'],params:{line:P_('Snow line',0,1,.01,.6),flat:P_('Sticks below',10,70,1,38)},
+    fn(c,[a],p){const R=c.R,cell=1/(R-1),o=new Float32Array(R*R);for(let j=1;j<R-1;j++)for(let i=1;i<R-1;i++){const k=j*R+i,s=Math.atan(Math.hypot(a[k+1]-a[k-1],a[k+R]-a[k-R])/(2*cell)*.25)*180/Math.PI;o[k]=smooth(p.line-.05,p.line+.05,a[k])*(1-smooth(p.flat-6,p.flat+6,s))}return o}},
+});

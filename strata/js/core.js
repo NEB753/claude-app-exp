@@ -48,9 +48,17 @@ const PRESETS={
   'Dune sea':{shape:{freq:4,oct:4,gain:.36,ridges:.85,warp:.45,peaks:1,weather:.15,island:0,terrace:0,tsteps:6,maxH:60,world:1400},biome:{palette:'arid',sea:0,snow:1,rock:1.2,lush:0,beach:0}},
   'Volcano isle':{shape:{freq:3,oct:6,gain:.48,ridges:.4,warp:.15,peaks:1.2,weather:.5,cone:.88,crater:.55,island:.9,terrace:0,tsteps:6,maxH:760,world:2400},biome:{palette:'volcanic',sea:.22,snow:.86,rock:.5,lush:.75,beach:.012}},
   'Frozen ridge':{shape:{freq:2.6,oct:7,gain:.5,ridges:.75,warp:.2,peaks:1.35,weather:.5,island:0,terrace:0,tsteps:6,maxH:480,world:3800},biome:{palette:'tundra',sea:.1,snow:.38,rock:.5,lush:.35,beach:.005}},
+  'Tectonic range':{shape:{freq:1.8,oct:7,gain:.48,ridges:.5,warp:.12,peaks:1.3,weather:.55,type:'tectonic',island:0,terrace:0,tsteps:6,maxH:820,world:6000},biome:{palette:'temperate',sea:.08,snow:.66,rock:.5,lush:.7,beach:.006}},
+  'Fjords':{shape:{freq:1.9,oct:6,gain:.5,ridges:.5,warp:.15,peaks:1.15,weather:.4,type:'fjords',island:0,terrace:0,tsteps:6,maxH:640,world:4200},biome:{palette:'tundra',sea:.24,snow:.74,rock:.5,lush:.6,beach:.004}},
+  'Glacial valley':{shape:{freq:2,oct:7,gain:.5,ridges:.6,warp:.12,peaks:1.25,weather:.5,type:'glacial',island:0,terrace:0,tsteps:6,maxH:900,world:4600},biome:{palette:'tundra',sea:.03,snow:.56,rock:.5,lush:.55,beach:.003}},
+  'Badlands':{shape:{freq:2.4,oct:6,gain:.5,ridges:.3,warp:.2,peaks:1.1,weather:.2,type:'badlands',island:0,terrace:0,tsteps:6,maxH:190,world:2200},biome:{palette:'arid',sea:0,snow:1,rock:.38,lush:.12,beach:0}},
+  'Karst towers':{shape:{freq:2,oct:5,gain:.45,ridges:.2,warp:.15,peaks:1,weather:.3,type:'karst',island:0,terrace:0,tsteps:6,maxH:280,world:2400},biome:{palette:'temperate',sea:.05,snow:1,rock:.42,lush:.95,beach:.004}},
+  'Rift valley':{shape:{freq:1.8,oct:6,gain:.48,ridges:.35,warp:.15,peaks:1.15,weather:.5,type:'rift',island:0,terrace:0,tsteps:6,maxH:700,world:5200},biome:{palette:'arid',sea:.03,snow:1,rock:.5,lush:.45,beach:.003}},
+  'Highland plateau':{shape:{freq:2,oct:6,gain:.48,ridges:.3,warp:.2,peaks:1.1,weather:.35,type:'plateau',island:0,terrace:0,tsteps:6,maxH:340,world:3200},biome:{palette:'autumn',sea:0,snow:1,rock:.48,lush:.6,beach:0}},
+  'Atoll':{shape:{freq:3,oct:5,gain:.45,ridges:.1,warp:.2,peaks:1,weather:.3,type:'atoll',island:0,terrace:0,tsteps:6,maxH:60,world:3000},biome:{palette:'temperate',sea:.34,snow:1,rock:1,lush:.9,beach:.04}},
   'Autumn valley':{shape:{freq:1.9,oct:6,gain:.46,ridges:.35,warp:.25,peaks:1.3,weather:.65,island:0,terrace:0,tsteps:6,maxH:320,world:3000},biome:{palette:'autumn',sea:.08,snow:.9,rock:.6,lush:.75,beach:.008}}
 };
-const SHAPE_RANGES={weather:[0,1,.01],freq:[.8,6,.05],oct:[3,8,1],gain:[.3,.65,.01],ridges:[0,1,.01],warp:[0,1,.01],peaks:[.6,3,.05],cone:[0,1,.01],crater:[0,1,.01],island:[0,1,.01],terrace:[0,1,.01],tsteps:[3,14,1],maxH:[20,1200,5],world:[400,8000,50]};
+const SHAPE_RANGES={typeAmt:[0,1,.01],weather:[0,1,.01],freq:[.8,6,.05],oct:[3,8,1],gain:[.3,.65,.01],ridges:[0,1,.01],warp:[0,1,.01],peaks:[.6,3,.05],cone:[0,1,.01],crater:[0,1,.01],island:[0,1,.01],terrace:[0,1,.01],tsteps:[3,14,1],maxH:[20,1200,5],world:[400,8000,50]};
 const QUALITY={
   battery:{label:'Battery saver',sub:'129² grid · 1× pixels · no shadows',res:129,dpr:1,shadow:0,scatter:.3,sim:97,tex:1024,undoMB:40},
   balanced:{label:'Balanced',sub:'257² grid · 2× pixels · soft shadows',res:257,dpr:2,shadow:2048,scatter:.7,sim:129,tex:2048,undoMB:90},
@@ -72,7 +80,7 @@ const LOOKS={natural:{n:'Natural',d:'Biome colors, soft daylight'},clay:{n:'Clay
 function autoQuality(){const d=window.devicePixelRatio||1,c=navigator.hardwareConcurrency||4;return d>=3&&c>=4?'pro':d>=2?'balanced':'battery'}
 const scatterDefaults=()=>{const o={};for(const k in SCATTER_TYPES)o[k]={...SCATTER_TYPES[k].def};return o};
 const DEF=()=>({v:2,preset:'Alpine',seed:4127,source:'gen',quality:autoQuality(),
-  shape:{cone:0,crater:0,weather:.5,...PRESETS.Alpine.shape},biome:{...PRESETS.Alpine.biome},macro:{x:.6,y:.35},
+  shape:{cone:0,crater:0,weather:.5,type:'standard',typeAmt:1,...PRESETS.Alpine.shape},biome:{...PRESETS.Alpine.biome},macro:{x:.6,y:.35},
   tool:'raise',paint:'grass',stamp:'mountain',plant:'add',brush:{size:240,strength:.5,falloff:.7,mirror:false,hold:false,shape:'soft',sym:'none',lazy:.25,cat:'shape'},maskMode:'add',
   ero:{drops:60000,power:1,talus:34,passes:30},
   fluid:{rain:.35,flow:.7,carve:.5,evap:.25,springs:[]},
@@ -82,7 +90,7 @@ const DEF=()=>({v:2,preset:'Alpine',seed:4127,source:'gen',quality:autoQuality()
   view:{vex:1,sunEl:34,sunAz:135,water:true,base:true,wire:false,shadows:true,contours:false,look:'natural',anim:true,clouds:true,mask:true,tod:.35,post:false},
   cam:{grade:'natural',vig:.3,grain:.03,tilt:0,focus:.5,expo:1,lens:1,grid:false,hq:true,mode:'photo',move:'turntable',dur:8},
   exp:{target:'blender',fmt:'glb',detail:1,base:true,depth:40,tex:2048,scatter:true,masks:true,pbr:true,tiles:1,atlas:true},
-  photo:{mode:'auto',height:.6,blur:2,invert:false,detail:.35,colors:false,palette:true,ai:true,pin:false,scatter:true,thin:true,quick:true},
+  photo:{mode:'auto',height:.6,blur:2,invert:false,detail:.35,colors:false,palette:true,project:true,ai:true,pin:false,scatter:true,thin:true,quick:true},
   graph:null,auto:true,tab:'create',sub:{create:'generate',sim:'water'},mode:'orbit',name:'Untitled terrain'});
 const VARIANTS={conifer:['conifer','pine'],broadleaf:['broadleaf','birch'],deadfall:['log','stump']};
 let S=DEF();
@@ -108,8 +116,43 @@ function genField(R,sh,seed){
     if(sh.terrace>0){const t=h*st,k0=Math.floor(t),f=t-k0,f2=smooth(.55,.95,f)*.85+f*.15;h=lerp(h,(k0+f2)/st,sh.terrace)}
     out[k]=Math.max(0,h);
   }
+  if(sh.type&&sh.type!=='standard')applyLandform(out,R,sh.type,seed,sh.typeAmt??1);
   weatherField(out,R,sh,seed);
   return out;
+}
+/* ---------------- landform types (inspired by Gaea / World Machine building blocks) ----------------
+   Each works on a 0..1 height field in place and is used three ways: as a generation type in Create, as a preset,
+   and as a node in the graph editor. */
+const LANDFORMS={
+  standard:{n:'Natural',d:'Ridges, valleys and foothills'},
+  tectonic:{n:'Tectonic',d:'Mountain chains along plate borders'},
+  fjords:{n:'Fjords',d:'Glacier-cut U valleys flooded by the sea'},
+  glacial:{n:'Glacial',d:'U-shaped valleys, horns and cirques'},
+  badlands:{n:'Badlands',d:'Layered, gullied soft rock'},
+  karst:{n:'Karst towers',d:'Steep limestone towers over flat floors'},
+  rift:{n:'Rift valley',d:'A long valley between escarpments'},
+  plateau:{n:'Plateau',d:'Caprock tablelands with eroded edges'},
+  atoll:{n:'Atoll',d:'A reef ring around a lagoon'}
+};
+function lfLine(seed){const r=mulberry32(seed*7+3);const a=r()*Math.PI;return{ca:Math.cos(a),sa:Math.sin(a),o:(r()-.5)*.25}}
+function applyLandform(f,R,type,seed,amt){
+  if(!type||type==='standard'||amt<=0)return f;const n=makeNoise(seed+911),n2=makeNoise(seed+77),a=amt;
+  const at=(i,j)=>[i/(R-1),j/(R-1)];
+  if(type==='tectonic'){const sd=seed+5;for(let j=0;j<R;j++)for(let i=0;i<R;i++){const[u,v]=at(i,j),wx=u+fbm(n,u*3,v*3,3,.5)*.08,wy=v+fbm(n,u*3+7,v*3,3,.5)*.08;worley(wx*3.2,wy*3.2,sd,.95);
+      const edge=1-smooth(0,.28,WF2-WF1),k=j*R+i;f[k]=lerp(f[k],f[k]*.35+.12+edge*(.55+.45*Math.abs(ridged(n2,u*6,v*6,5,.5))),a)}}
+  else if(type==='fjords'||type==='glacial'){const fj=type==='fjords';
+    for(let j=0;j<R;j++)for(let i=0;i<R;i++){const[u,v]=at(i,j),k=j*R+i,w=Math.abs(fbm(n,u*2.2,v*2.2,4,.5)),wid=fj?.17:.1,ch=1-smooth(0,wid,w),uprof=1-Math.pow(1-ch,2.2)/* U profile */;
+      const base=fj?.45+.55*f[k]:f[k],horn=fj?0:Math.pow(Math.abs(ridged(n2,u*5,v*5,4,.5)),3)*.25;f[k]=lerp(f[k],Math.max(0,base*(1-uprof*.85)+horn*(1-ch)-(fj?uprof*.18:0)),a)}}
+  else if(type==='badlands'){for(let j=0;j<R;j++)for(let i=0;i<R;i++){const[u,v]=at(i,j),k=j*R+i,h=f[k]*.55+.25,t=h*16+fbm(n,u*2,v*2,3,.5)*.6,s=Math.floor(t),fr=t-s,st=(s+smooth(.35,.75,fr))/16,g=Math.abs(fbm(n2,u*9,v*9,4,.5)),gul=1-smooth(0,.07,g);
+      f[k]=lerp(f[k],Math.max(0,st-gul*.12*h),a)}}
+  else if(type==='karst'){const sd=seed+31;for(let j=0;j<R;j++)for(let i=0;i<R;i++){const[u,v]=at(i,j),k=j*R+i;worley(u*9+fbm(n,u*2,v*2,2,.5)*.4,v*9,sd,.9);const sz=.32+.2*WID,t=clamp(1-WF1/sz,0,1),tower=Math.pow(t,.55)*(WID>.25?1:0)*(.6+.4*WID);
+      f[k]=lerp(f[k],.06+f[k]*.08+tower*.9,a)}}
+  else if(type==='rift'){const L=lfLine(seed);for(let j=0;j<R;j++)for(let i=0;i<R;i++){const[u,v]=at(i,j),k=j*R+i,d=(u-.5)*L.ca+(v-.5)*L.sa-L.o+fbm(n,u*3,v*3,3,.5)*.05,ad=Math.abs(d),esc=smooth(.08,.14,ad),floor=.05+.05*fbm(n2,u*5,v*5,3,.5);
+      f[k]=lerp(f[k],lerp(floor,.35+f[k]*.65,esc)+(ad<.14&&ad>.1?.06:0),a)}}
+  else if(type==='plateau'){for(let j=0;j<R;j++)for(let i=0;i<R;i++){const[u,v]=at(i,j),k=j*R+i,e=fbm(n,u*4,v*4,4,.5)*.08,cap=smooth(.38+e,.46+e,f[k]);f[k]=lerp(f[k],f[k]*.3+cap*.62+(cap>.98?fbm(n2,u*12,v*12,2,.5)*.01:0),a)}}
+  else if(type==='atoll'){for(let j=0;j<R;j++)for(let i=0;i<R;i++){const[u,v]=at(i,j),k=j*R+i,dx=u-.5,dy=v-.5,ang=Math.atan2(dy,dx),d=Math.hypot(dx,dy)*2+fbm(n,Math.cos(ang)*1.5+3,Math.sin(ang)*1.5,3,.5)*.12,
+      ring=Math.exp(-Math.pow((d-.62)/.07,2)),gap=smooth(.15,.35,Math.abs(fbm(n2,ang*1.3,1,2,.5))),isl=Math.max(0,1-d/.18)*.5;f[k]=lerp(f[k],Math.max(ring*.42*gap+(1-smooth(.4,.9,d))*.08,isl),a)}}
+  return normalizeField(f);
 }
 /* Natural weathering after noise: thermal passes cap slopes near the angle of repose (no needle peaks), then
    rain droplets carve gullies and lay down fans. Scales with resolution so previews match the full map. */
@@ -158,6 +201,8 @@ function drawRelief(cv,f,R,pal){
 /* ---------------- coloring ---------------- */
 const C3=[0,0,0];
 const HEAT=[[22,44,96],[34,120,150],[96,176,104],[226,208,92],[222,112,52],[246,240,232]];
+const SPL=[0,0,0,0];/* texture weights for the last colorAt: rock, snow, sand, dry (grass is the rest) */
+function splTo(i,t){if(t<=0)return;const s=1-t;SPL[0]*=s;SPL[1]*=s;SPL[2]*=s;SPL[3]*=s;SPL[i]+=t}
 function colorAt(h,ny,m,ao,pr,pg,pb,pw,wet){
   const b=S.biome,maxH=S.shape.maxH,hn=h/maxH,sea=b.sea,slope=1-ny;let r,g,bl;
   if(S.view.look==='heat'){const t=clamp((h-stats.lo)/((stats.hi-stats.lo)||1),0,.9999)*(HEAT.length-1),i=t|0,f=t-i,A=HEAT[i],B=HEAT[i+1];
@@ -166,15 +211,15 @@ function colorAt(h,ny,m,ao,pr,pg,pb,pw,wet){
   if(sea>0&&hn<sea){
     /* seabed seen through water: red light is absorbed first, so shallows turn turquoise and depth goes dark teal */
     const dm=(sea-hn)*maxH,t=smooth(0,5,dm),ar=Math.exp(-dm*.22)*.62+.18,ag=Math.exp(-dm*.08)*.5+.38,ab=Math.exp(-dm*.05)*.4+.5;
-    r=lerp(P.sand[0],P.seabed[0],t)*ar;g=lerp(P.sand[1],P.seabed[1],t)*ag;bl=lerp(P.sand[2],P.seabed[2],t)*ab;
+    r=lerp(P.sand[0],P.seabed[0],t)*ar;g=lerp(P.sand[1],P.seabed[1],t)*ag;bl=lerp(P.sand[2],P.seabed[2],t)*ab;SPL[0]=t*.35;SPL[1]=0;SPL[2]=1-t*.35;SPL[3]=0;
   }else{
     const t=sea>=1?0:clamp((hn-sea)/(1-sea),0,1),wetn=clamp(b.lush*(.55+.9*m)-t*.8+wet*.5,0,1);
-    r=lerp(P.dry[0],P.lush[0],wetn);g=lerp(P.dry[1],P.lush[1],wetn);bl=lerp(P.dry[2],P.lush[2],wetn);
-    const al=smooth(.5,.85,t);r=lerp(r,P.alpine[0],al);g=lerp(g,P.alpine[1],al);bl=lerp(bl,P.alpine[2],al);
-    if(b.beach>0&&sea>0){const be=(1-smooth(sea,sea+b.beach,hn))*(1-smooth(.15,.3,slope));r=lerp(r,P.sand[0],be);g=lerp(g,P.sand[1],be);bl=lerp(bl,P.sand[2],be)}
+    r=lerp(P.dry[0],P.lush[0],wetn);g=lerp(P.dry[1],P.lush[1],wetn);bl=lerp(P.dry[2],P.lush[2],wetn);SPL[0]=0;SPL[1]=0;SPL[2]=0;SPL[3]=(1-wetn)*.85;
+    const al=smooth(.5,.85,t);splTo(0,al*.3);r=lerp(r,P.alpine[0],al);g=lerp(g,P.alpine[1],al);bl=lerp(bl,P.alpine[2],al);
+    if(b.beach>0&&sea>0){const be=(1-smooth(sea,sea+b.beach,hn))*(1-smooth(.15,.3,slope));splTo(2,be);r=lerp(r,P.sand[0],be);g=lerp(g,P.sand[1],be);bl=lerp(bl,P.sand[2],be)}
     const thr=b.rock*.42*(1-.35*smooth(.4,.9,t)),rk=smooth(thr-.05,thr+.05,slope);
-    if(rk>0){const s=(Math.sin(h*.09+m*4)*.5+.5)*.8;r=lerp(r,lerp(P.rock[0],P.rock2[0],s),rk);g=lerp(g,lerp(P.rock[1],P.rock2[1],s),rk);bl=lerp(bl,lerp(P.rock[2],P.rock2[2],s),rk)}
-    if(b.snow<1){const sl=b.snow+(m-.5)*.08,sn=smooth(sl-.03,sl+.03,hn)*(1-smooth(.3,.5,slope));r=lerp(r,P.snow[0],sn);g=lerp(g,P.snow[1],sn);bl=lerp(bl,P.snow[2],sn)}
+    if(rk>0){splTo(0,rk);const s=(Math.sin(h*.09+m*4)*.5+.5)*.8;r=lerp(r,lerp(P.rock[0],P.rock2[0],s),rk);g=lerp(g,lerp(P.rock[1],P.rock2[1],s),rk);bl=lerp(bl,lerp(P.rock[2],P.rock2[2],s),rk)}
+    if(b.snow<1){const sl=b.snow+(m-.5)*.08,sn=smooth(sl-.03,sl+.03,hn)*(1-smooth(.3,.5,slope));splTo(1,sn);r=lerp(r,P.snow[0],sn);g=lerp(g,P.snow[1],sn);bl=lerp(bl,P.snow[2],sn)}
     if(wet>.02){const w=Math.min(wet,1);r*=1-.42*w;g*=1-.28*w;bl*=1-.30*w}
   }
   if(pw>0){r=lerp(r,pr,pw);g=lerp(g,pg,pw);bl=lerp(bl,pb,pw)}
@@ -194,7 +239,7 @@ function haptic(ms,kind){
     if(IOS){if(!_hapEl){_hapEl=document.createElement('label');_hapEl.setAttribute('aria-hidden','true');_hapEl.style.cssText='position:fixed;left:-100px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';const i=document.createElement('input');i.type='checkbox';i.setAttribute('switch','');i.tabIndex=-1;_hapEl.appendChild(i);document.body.appendChild(_hapEl)}_hapEl.click()}}catch(e){}}
 function celebrate(){const c=$('#celebrate');if(!c||SET.reduceMotion)return;const cols=['var(--gold)','var(--gold-hi)','var(--accent-hi)','var(--blue)','#fff'];let h='';for(let i=0;i<22;i++){const a=Math.random()*6.283,d=70+Math.random()*90;h+=`<i style="background:${cols[i%5]};--x:${Math.cos(a)*d}px;--y:${Math.sin(a)*d-40}px;--r:${Math.random()*540}deg;animation-delay:${Math.random()*.08}s"></i>`}c.innerHTML=h;c.classList.remove('go');void c.offsetWidth;c.classList.add('go')}
 /* device settings (per browser), separate from the project */
-const SET_DEF={sound:true,volume:.6,uiSize:'compact',accent:'forest',style:'glass',adaptive:true,theme:'',units:'m',invertY:false,sens:1,leftHand:false,reduceMotion:false,apiKey:'',model:'claude-opus-5-5',haptics:true,hints:false};
+const SET_DEF={sound:true,volume:.6,uiSize:'compact',accent:'forest',style:'glass',layout:'sheet',labels:true,power:'balanced',uiPreset:'',adaptive:true,theme:'',units:'m',invertY:false,sens:1,leftHand:false,reduceMotion:false,apiKey:'',model:'claude-opus-5-5',haptics:true,hints:false};
 let SET={...SET_DEF};try{const o=JSON.parse(localStorage.getItem('strata.settings')||'{}');SET={...SET_DEF,...o};
   if(!('uiSize' in o)){SET.uiSize=o.uiLarge?'large':'compact';SET.hints=false}delete SET.uiLarge}catch(e){}
 function saveSettings(){try{localStorage.setItem('strata.settings',JSON.stringify(SET))}catch(e){}}

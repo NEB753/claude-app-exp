@@ -37,10 +37,22 @@ async function newProject(){await saveProject(true).catch(()=>{});const q=S.qual
 
 /* ---------------- home UI ---------------- */
 let homeTab='creations';
-function openHome(tab){closeHelper();closePanel(true);homeTab=tab||homeTab;$('#home').hidden=false;renderHome('enter');saveProject(true).catch(()=>{})}
+function openHome(tab){if(tab==='settings'){openSettings();return}if(homeTab==='settings')homeTab='creations';closeHelper();closePanel(true);homeTab=tab||homeTab;$('#home').hidden=false;renderHome('enter');saveProject(true).catch(()=>{})}
 function closeHome(){$('#home').hidden=true}
+/* Settings is its own window (gear in the top bar), not a tab buried in Home */
+function openSettings(){closeHelper();closePanel(true);closeHome();const w=$('#settingsWin');w.hidden=false;const b=$('#setBody');renderSettings(b);if(!SET.reduceMotion){b.classList.remove('enter');void b.offsetWidth;b.classList.add('enter')}sfx('pop')}
+function closeSettings(){$('#settingsWin').hidden=true}
+$('#setBtn').onclick=()=>{$('#settingsWin').hidden?openSettings():closeSettings()};$('#closeSettings').onclick=closeSettings;
+const UI_PRESETS={
+  studio:{n:'Studio',d:'Liquid glass · Forest · Regular',s:{style:'glass',accent:'forest',uiSize:'regular',layout:'sheet',labels:true},pv:'rgba(255,255,255,.62)'},
+  minimal:{n:'Minimal',d:'Flat · Graphite · Compact · icon dock',s:{style:'minimal',accent:'graphite',uiSize:'compact',layout:'minimal',labels:false},pv:'rgba(245,247,248,.95)'},
+  focus:{n:'Focus',d:'Solid · Ocean · floating window',s:{style:'solid',accent:'ocean',uiSize:'compact',layout:'float',labels:false},pv:'rgba(240,246,250,.95)'},
+  night:{n:'Night',d:'Dark · Violet · glass · compact',s:{theme:'dark',style:'glass',accent:'violet',uiSize:'compact',layout:'sheet',labels:true},pv:'rgba(30,30,44,.85)'}};
+const LAYOUT_SVG={sheet:'<svg viewBox="0 0 46 34"><rect x="1" y="1" width="44" height="32" rx="6" fill="none" stroke="currentColor" stroke-opacity=".35"/><rect x="4" y="16" width="38" height="11" rx="3" fill="currentColor" fill-opacity=".35"/><rect x="8" y="28.5" width="30" height="3" rx="1.5" fill="currentColor"/></svg>',
+  float:'<svg viewBox="0 0 46 34"><rect x="1" y="1" width="44" height="32" rx="6" fill="none" stroke="currentColor" stroke-opacity=".35"/><rect x="4" y="12" width="18" height="15" rx="3" fill="currentColor" fill-opacity=".35"/><rect x="4" y="28.5" width="16" height="3" rx="1.5" fill="currentColor"/></svg>',
+  minimal:'<svg viewBox="0 0 46 34"><rect x="1" y="1" width="44" height="32" rx="6" fill="none" stroke="currentColor" stroke-opacity=".35"/><rect x="15" y="27" width="16" height="4" rx="2" fill="currentColor"/><circle cx="40" cy="6" r="2" fill="currentColor"/></svg>'};
 $('#homeBtn').onclick=()=>openHome();$('#closeHome').onclick=closeHome;
-$$('#homeSeg [data-home]').forEach(b=>b.onclick=()=>{const i=['creations','library','settings'],dir=i.indexOf(b.dataset.home)>i.indexOf(homeTab)?'enter-r':'enter-l';homeTab=b.dataset.home;renderHome(dir)});
+$$('#homeSeg [data-home]').forEach(b=>b.onclick=()=>{const i=['creations','library'],dir=i.indexOf(b.dataset.home)>i.indexOf(homeTab)?'enter-r':'enter-l';homeTab=b.dataset.home;renderHome(dir)});
 async function renderHome(anim){
   $$('#homeSeg [data-home]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.home===homeTab));requestAnimationFrame(()=>segIndicator($('#homeSeg')));
   $('#homeTitle').textContent={creations:'Creations',library:'Library',settings:'Settings'}[homeTab];
@@ -92,7 +104,14 @@ const ACCENTS={forest:{n:'Forest',a:'#1f5c41',g:'#d9ae4a'},ocean:{n:'Ocean',a:'#
 async function renderSettings(body){
   const mode=await aiMode();let est=null;try{est=navigator.storage&&navigator.storage.estimate?await navigator.storage.estimate():null}catch(e){}
   const q=Object.entries(QUALITY);
-  body.innerHTML=`<div class="label" style="margin-top:0">Quality</div>${q.map(([k,v])=>`<button class="it press" data-q="${k}" style="display:flex;width:100%;align-items:center;gap:10px;padding:11px 12px;border-radius:14px;text-align:left;${S.quality===k?'background:var(--accent-soft)':''}"><span style="flex:1"><b style="font-weight:650">${v.label}</b><small style="display:block;color:var(--ink-3);font-size:12px">${v.sub}</small></span>${S.quality===k?`<span style="color:var(--gold)">${svg('<path d="m5 12 5 5 9-10"/>',2.6)}</span>`:''}</button>`).join('')}
+  const up=SET.uiPreset;
+  body.innerHTML=`<div class="set-sec" style="margin-top:2px">Look & feel presets</div>
+  <div class="uipre">${Object.entries(UI_PRESETS).map(([k,p])=>`<button class="press" data-uipre="${k}" aria-pressed="${up===k}"><span class="mini" style="--pv:${p.pv}"><i style="left:6px;right:6px;top:5px;height:7px"></i><i style="left:6px;width:${k==='focus'?'46%':'calc(100% - 12px)'};bottom:${k==='minimal'?'-20px':'12px'};height:${k==='minimal'?'0':'14px'}"></i><i style="left:${k==='minimal'?'34%':'6px'};width:${k==='minimal'?'32%':k==='focus'?'40%':'calc(100% - 12px)'};bottom:4px;height:5px"></i></span><b>${p.n}</b><small>${p.d}</small></button>`).join('')}</div>
+  <div class="set-sec">Layout</div>
+  <div class="layopt">${[['sheet','Sheet'],['float','Floating'],['minimal','Minimal']].map(([v,l])=>`<button class="press" data-lay="${v}" aria-pressed="${SET.layout===v}">${LAYOUT_SVG[v]}${l}</button>`).join('')}</div>
+  <p class="hint">${{sheet:'A panel slides up from the bottom.',float:'A small window floats bottom-left; tap a tab again to hide it.',minimal:'Just an icon dock. Panels open when you tap and tuck away when you touch the land.'}[SET.layout]}</p>
+  ${stg('labels','Labels under dock icons','Off gives a slimmer icon-only dock')}
+  <div class="label" style="margin-top:12px">Quality</div>${q.map(([k,v])=>`<button class="it press" data-q="${k}" style="display:flex;width:100%;align-items:center;gap:10px;padding:11px 12px;border-radius:14px;text-align:left;${S.quality===k?'background:var(--accent-soft)':''}"><span style="flex:1"><b style="font-weight:650">${v.label}</b><small style="display:block;color:var(--ink-3);font-size:12px">${v.sub}</small></span>${S.quality===k?`<span style="color:var(--gold)">${svg('<path d="m5 12 5 5 9-10"/>',2.6)}</span>`:''}</button>`).join('')}
   <div class="label">Appearance</div>
   <div class="seg" id="setTheme"><span class="ind"></span>${[['','System'],['light','Light'],['dark','Dark']].map(([v,l])=>`<button data-theme="${v}" aria-pressed="${(SET.theme||'')===v}">${l}</button>`).join('')}</div>
   <div class="label">Interface size</div>
@@ -104,6 +123,9 @@ async function renderSettings(body){
   <p class="hint">${{glass:'Frosted, refractive panels over the land.',solid:'Opaque panels, no blur. Fastest on older phones.',minimal:'Flat and quiet: no bevels, tighter corners.'}[SET.style]||''}</p>
   ${stg('reduceMotion','Reduce motion','Turns off animations and the terrain morph')}
   ${setRow('Units','',`<div class="seg" id="setUnits" style="width:150px"><span class="ind"></span><button data-u="m" aria-pressed="${SET.units==='m'}">Meters</button><button data-u="ft" aria-pressed="${SET.units==='ft'}">Feet</button></div>`)}
+  <div class="set-sec">Power</div>
+  <div class="seg" id="setPower"><span class="ind"></span>${[['battery','Battery saver'],['balanced','Balanced'],['max','Max · 120 Hz']].map(([v,l])=>`<button data-power="${v}" aria-pressed="${SET.power===v}">${l}</button>`).join('')}</div>
+  <p class="hint">${{battery:'30 fps cap, no glass blur, lighter effects. Best for long sessions.',balanced:'Smooth 60 fps; glass simplifies while the land moves.',max:'Uncapped frame rate (ProMotion), full effects at all times.'}[SET.power]}</p>
   <div class="label">Sound</div>${stg('sound','Sounds','Soft clicks, sculpting and nature ambience')}${sliderRow('snd.vol','Volume',0,1,.01,SET.volume??.6,.6,v=>Math.round(v*100)+'%')}
   <div class="label">Controls</div>
   ${sliderRow('cam.sens','Camera speed',.4,2,.05,SET.sens,1,v=>(+v).toFixed(2)+'×')}
@@ -122,8 +144,11 @@ async function renderSettings(body){
   $$('[data-q]',body).forEach(b=>b.onclick=async()=>{await setQuality(b.dataset.q);renderSettings(body)});
   const th=$('#setTheme',body);requestAnimationFrame(()=>{segIndicator(th);segIndicator($('#setUnits',body));segIndicator($('#setSize',body));segIndicator($('#setStyle',body))});
   const pick=(attr,key)=>$$(`[data-${attr}]`,body).forEach(b=>{if(b.closest('#sheet'))return;b.onclick=()=>{SET[key]=b.dataset[attr];saveSettings();applySettings();haptic(8);
-    $$(`[data-${attr}]`,body).forEach(x=>x.setAttribute('aria-pressed',x===b));const sg=b.closest('.seg');if(sg)setTimeout(()=>segIndicator(sg),60);if(key==='style')renderSettings(body)}});
-  pick('size','uiSize');pick('accent','accent');pick('style','style');
+    $$(`[data-${attr}]`,body).forEach(x=>x.setAttribute('aria-pressed',x===b));const sg=b.closest('.seg');if(sg)setTimeout(()=>segIndicator(sg),60);if(key==='style'||key==='power')renderSettings(body);SET.uiPreset=key==='power'?SET.uiPreset:'';saveSettings()}});
+  pick('size','uiSize');pick('accent','accent');pick('style','style');pick('power','power');
+  $$('[data-lay]',body).forEach(b=>b.onclick=()=>{SET.layout=b.dataset.lay;SET.uiPreset='';saveSettings();applySettings();haptic(8);renderSettings(body)});
+  $$('[data-uipre]',body).forEach(b=>b.onclick=()=>{const p=UI_PRESETS[b.dataset.uipre];Object.assign(SET,p.s);if(!('theme' in p.s))SET.theme='';SET.uiPreset=b.dataset.uipre;saveSettings();applySettings();sfx('chime');haptic(12);renderSettings(body)});
+  requestAnimationFrame(()=>segIndicator($('#setPower',body)));
   $$('[data-theme]',th).forEach(b=>b.onclick=()=>{SET.theme=b.dataset.theme;saveSettings();applySettings();$$('[data-theme]',th).forEach(x=>x.setAttribute('aria-pressed',x===b));segIndicator(th)});
   $$('[data-u]',body).forEach(b=>b.onclick=()=>{SET.units=b.dataset.u;saveSettings();$$('[data-u]',body).forEach(x=>x.setAttribute('aria-pressed',x===b));segIndicator($('#setUnits',body));renderSheet()});
   $$('input[data-sk]',body).forEach(c=>c.onchange=()=>{SET[c.dataset.sk]=c.checked;saveSettings();applySettings();if(c.dataset.sk==='sound'){if(SET.sound)auInit();else loopsOff();auVol()}});
@@ -138,5 +163,8 @@ function applySettings(){
   const r=document.documentElement;if(SET.theme)r.dataset.theme=SET.theme;else delete r.dataset.theme;
   if(SET.accent&&SET.accent!=='forest')r.dataset.accent=SET.accent;else delete r.dataset.accent;if(SET.style&&SET.style!=='glass')r.dataset.style=SET.style;else delete r.dataset.style;
   const bc=document.body.classList;bc.toggle('reduce-motion',!!SET.reduceMotion);bc.toggle('left-hand',!!SET.leftHand);bc.toggle('ui-large',SET.uiSize==='large');bc.toggle('ui-regular',SET.uiSize==='regular');bc.toggle('show-tips',!!SET.hints);
+  for(const l of ['sheet','float','minimal'])bc.toggle('lay-'+l,SET.layout===l);bc.toggle('icons-only',!SET.labels||SET.layout==='minimal');
+  for(const p of ['battery','balanced','max'])bc.toggle('pw-'+p,SET.power===p);
+  if(typeof setDetent==='function'&&typeof sheetState!=='undefined'){if(SET.layout==='sheet'&&sheetState==='closed')setDetent(DETENT_DEFAULT[S.tab]||'peek');else if(SET.layout==='minimal'&&applySettings.lay!=='minimal'&&applySettings.lay!=null)setDetent('closed')}applySettings.lay=SET.layout;
   if(typeof layoutSheet==='function'&&typeof insets!=='undefined')requestAnimationFrame(()=>{layoutSheet();if(typeof dockIndicator==='function')dockIndicator()});if(typeof applyQuality==='function'&&typeof geo!=='undefined'&&geo)applyQuality();
 }

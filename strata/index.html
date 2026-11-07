@@ -647,6 +647,83 @@ body:not(.show-tips) .tip{display:none}
 .swl{font-size:11px;color:var(--ink-3);text-align:center;margin-top:4px}
 .swcol{display:flex;flex-direction:column;align-items:center}
 
+
+/* ---- v1.5: settings window, layouts (sheet / floating / minimal), power, fluid micro-interactions ---- */
+#settingsWin{position:fixed;z-index:21;left:max(8px,env(safe-area-inset-left,0px));right:max(8px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 8px);bottom:calc(env(safe-area-inset-bottom,0px) + 8px);
+  max-width:560px;margin:0 auto;display:flex;flex-direction:column;overflow:hidden;background:var(--tint-strong);transition:transform .55s var(--spring),opacity .3s}
+#settingsWin[hidden]{display:flex!important;transform:translateY(105%) scale(.98);opacity:0;pointer-events:none}
+#settingsWin .hh{display:flex;align-items:center;gap:8px;padding:12px 12px 6px 18px}#settingsWin .hh h2{margin:0;flex:1;font-family:var(--f-display);font-size:22px}
+#settingsWin .hbody{flex:1;overflow-y:auto;padding:4px 16px 24px;touch-action:pan-y;overscroll-behavior:contain}
+.set-sec{margin:14px 0 4px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:700}
+.uipre{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.uipre button{position:relative;display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:16px;background:var(--track);text-align:left;overflow:hidden}
+.uipre button[aria-pressed="true"]{box-shadow:0 0 0 2px var(--gold)}
+.uipre b{font-size:13px;font-weight:700}.uipre small{font-size:11px;color:var(--ink-3)}
+.uipre .mini{height:44px;border-radius:10px;background:linear-gradient(160deg,#7fa38a,#c9d7cf);position:relative;overflow:hidden}
+.uipre .mini i{position:absolute;border-radius:6px;background:var(--pv,rgba(255,255,255,.75))}
+.layopt{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.layopt button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;border-radius:16px;background:var(--track);font-size:12px;font-weight:650}
+.layopt button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 1.5px var(--accent)}
+.layopt svg{width:46px;height:34px}
+@media (min-width:900px){#settingsWin{left:auto;right:14px;width:440px;max-width:none;top:calc(env(safe-area-inset-top,0px) + 66px);bottom:14px}#settingsWin[hidden]{transform:translateX(110%)}}
+/* closed sheet (floating and minimal layouts) */
+#bottom.closed #sheet{height:0!important;opacity:0;pointer-events:none;margin-top:-8px}
+#sheet{transition:height .5s var(--spring),opacity .25s}
+/* floating window */
+body.lay-float #bottom{left:max(10px,env(safe-area-inset-left,0px));right:auto;width:min(340px,calc(100vw - 78px));max-width:none;margin:0}
+body.lay-float #sheet{max-height:min(52vh,420px)}
+body.lay-float .pcard{width:54px}body.lay-float .pcard img{width:54px;height:54px}
+body.lay-float #sheet{border-radius:22px;box-shadow:0 20px 50px -20px var(--shadow)}
+body.lay-float #dock{width:auto;align-self:flex-start;grid-template-columns:repeat(5,48px)}
+/* minimal: icon pill dock, compact chrome, panels only when asked */
+body.lay-minimal #dock{grid-template-columns:repeat(5,44px);align-self:center;padding:4px}
+body.lay-minimal #bottom{max-width:420px}
+body.lay-minimal .brand .stack,body.lay-minimal #queueBtn:not(.busy),body.lay-minimal .ask b{display:none}
+body.lay-minimal .ask{padding:0;width:36px;justify-content:center}
+body.lay-minimal #top{left:auto;right:max(12px,env(safe-area-inset-right,0px));gap:0}
+body.lay-minimal #top .spacer{display:none}
+body.lay-minimal #rail{opacity:.86}
+body.icons-only #dock button{font-size:0;gap:0;padding:9px 0}
+body.icons-only #dock button svg{width:21px;height:21px}
+/* power: battery saver drops blur entirely; while the scene moves, glass gets cheaper so frames stay smooth */
+body.pw-battery .glass,body.pw-battery .pop{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;background:var(--panel)!important}
+body.pw-battery .glass::before,body.pw-battery .glass::after{display:none}
+body.moving:not(.pw-max) .glass{-webkit-backdrop-filter:blur(8px) saturate(140%);backdrop-filter:blur(8px) saturate(140%)}
+/* micro-interactions */
+.press{position:relative;-webkit-tap-highlight-color:transparent}
+.rip{position:absolute;left:var(--rx,50%);top:var(--ry,50%);width:10px;height:10px;margin:-5px;border-radius:50%;background:currentColor;opacity:.18;pointer-events:none;animation:rip .5s var(--ease) forwards}
+@keyframes rip{to{transform:scale(14);opacity:0}}
+.acc[open]>.acc-body{animation:accIn .38s var(--ease) both}
+@keyframes accIn{from{opacity:0;transform:translateY(-6px)}}
+.sl.on .th{transform:scale(1.18,1.12)}.sl .th{transition:transform .25s var(--spring),box-shadow .25s}
+.sl.on .bub{opacity:1;transform:translateY(-4px) scale(1)}.sl .bub{transition:opacity .2s,transform .3s var(--spring)}
+.switch input+span::after{transition:transform .38s var(--spring),width .25s}
+.switch:active input+span::after{width:28px}
+.val.tick{animation:valTick .28s var(--ease)}
+@keyframes valTick{30%{transform:translateY(-2px);color:var(--accent)}}
+#sheetBody>*{animation:none}
+.sheet-scroll.enter>*,.sheet-scroll.enter-l>*,.sheet-scroll.enter-r>*{animation:stag .44s var(--ease) both}
+.sheet-scroll.enter>*:nth-child(2),.sheet-scroll.enter-l>*:nth-child(2),.sheet-scroll.enter-r>*:nth-child(2){animation-delay:.03s}
+.sheet-scroll.enter>*:nth-child(3),.sheet-scroll.enter-l>*:nth-child(3),.sheet-scroll.enter-r>*:nth-child(3){animation-delay:.06s}
+.sheet-scroll.enter>*:nth-child(n+4),.sheet-scroll.enter-l>*:nth-child(n+4),.sheet-scroll.enter-r>*:nth-child(n+4){animation-delay:.09s}
+@keyframes stag{from{opacity:0;transform:translateY(8px)}}
+.sl{touch-action:none}
+.row>label{touch-action:pan-y}
+
+/* ---- desktop workspace ---- */
+#insp{position:fixed;z-index:6;right:14px;top:calc(env(safe-area-inset-top,0px) + 66px);bottom:14px;width:300px;display:flex;flex-direction:column;border-radius:22px;overflow:hidden}
+#insp .ih,#keys .ih{display:flex;align-items:center;gap:8px;padding:10px 8px 6px 14px}#insp .ih b,#keys .ih b{font-family:var(--f-display);font-size:16px}
+#insp .ib{flex:1;overflow-y:auto;padding:2px 12px 14px}
+#iMap{width:100%;aspect-ratio:1;border-radius:14px;display:block;cursor:crosshair;box-shadow:inset 0 0 0 1px var(--hair)}
+#iHist{width:100%;height:60px;display:block}
+.ilab{display:flex;justify-content:space-between;margin:10px 0 4px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:700}.ilab span{font-family:var(--f-mono);text-transform:none;letter-spacing:0}
+.igrid{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12px;margin-top:8px}.igrid span{color:var(--ink-3)}.igrid b{font-family:var(--f-mono);font-weight:600;text-align:right}
+#inspShow{position:fixed;z-index:6;right:14px;top:50%;width:28px;height:56px;border-radius:14px;display:grid;place-items:center}#inspShow svg,#insp .ih svg{width:18px;height:18px}
+body.desk-insp #rail{right:326px}body.desk-insp #top{right:326px}body.desk-insp #toast{margin-right:157px}
+#keys{position:fixed;z-index:30;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,calc(100vw - 32px));border-radius:22px;padding-bottom:14px;background:var(--panel)}
+.kgrid{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;padding:4px 18px;font-size:13px}
+kbd{font-family:var(--f-mono);font-size:12px;padding:2px 8px;border-radius:7px;background:var(--track-2);box-shadow:inset 0 -1px 0 var(--hair);white-space:nowrap;justify-self:start}
+@media (min-width:1100px) and (pointer:fine){#bottom{width:440px}.btn:hover,.chipb:hover,.pcard:hover img,.tool:hover{filter:brightness(1.06)}.pcard:hover img{transform:translateY(-2px)}}
 </style>
 
 <canvas id="view" aria-label="3D terrain view"></canvas>
@@ -657,6 +734,7 @@ body:not(.show-tips) .tip{display:none}
     <span class="stack"><span>Terrain Gen <small style="font-family:var(--f-mono);font-size:10px;color:var(--gold);font-weight:600">V1</small></span><span class="sub" id="crumb"></span></span>
   </button>
   <div class="spacer"></div>
+  <button class="ibtn press" id="setBtn" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
   <button class="ibtn press" id="queueBtn" aria-label="Queue of running tasks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="16" r="3"/></svg><b></b></button>
   <button class="ibtn press" id="undo" aria-label="Undo" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
   <button class="ibtn press" id="redo" aria-label="Redo" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
@@ -696,9 +774,10 @@ body:not(.show-tips) .tip{display:none}
   <nav id="dock" class="glass" role="tablist" aria-label="Tools"><div class="ind" id="dockInd"></div></nav>
 </div>
 
+<section id="settingsWin" class="glass" hidden aria-label="Settings"><div class="hh"><h2>Settings</h2><button class="ibtn press" id="closeSettings" aria-label="Close settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div><div class="hbody" id="setBody"></div></section>
 <section id="home" class="glass" hidden aria-label="Home">
   <div class="hh"><h2 id="homeTitle">Creations</h2><button class="ibtn press" id="closeHome" aria-label="Close home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
-  <div class="seg big hseg" id="homeSeg" role="group"><button data-home="creations" aria-pressed="true">Creations</button><button data-home="library" aria-pressed="false">Library</button><button data-home="settings" aria-pressed="false">Settings</button></div>
+  <div class="seg big hseg" id="homeSeg" role="group"><button data-home="creations" aria-pressed="true">Creations</button><button data-home="library" aria-pressed="false">Library</button></div>
   <div class="hbody" id="homeBody"></div>
 </section>
 
@@ -760,4 +839,5 @@ body:not(.show-tips) .tip{display:none}
 <script src="js/fp.js"></script>
 <script src="js/camera.js"></script>
 <script src="js/home.js"></script>
+<script src="js/desktop.js"></script>
 <script src="js/main.js"></script>

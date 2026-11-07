@@ -7,7 +7,11 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 OUT="${1:-_site}"; VENDOR="${2:-}"
 rm -rf "$OUT"; mkdir -p "$OUT"
 cp -r "$HERE/js" "$OUT/js"
+cp -r "$HERE/tex" "$OUT/tex"
 cp "$HERE"/pwa/* "$OUT/"
+# stamp a build id into the service worker so every deploy replaces the old cache
+BUILD="$(cd "$HERE" && cat index.html js/*.js | (sha1sum 2>/dev/null || shasum) | cut -c1-10)"
+sed -i.bak "s#__BUILD__#$BUILD#g" "$OUT/sw.js" && rm -f "$OUT"/sw.js.bak
 THREE='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'
 {
   printf '<!doctype html><html lang="en"><head><meta charset="utf-8">'

@@ -36,7 +36,7 @@ function brushAt(cx,cy,amt,p){
   const W=S.shape.world,g=(N-1)/W,rad=Math.max(1,S.brush.size*g),fall=S.brush.falloff,tool=S.tool,st=S.brush.strength*amt,rate=S.shape.maxH*.012;
   const i0=Math.max(0,Math.floor(cx-rad)),i1=Math.min(N-1,Math.ceil(cx+rad)),j0=Math.max(0,Math.floor(cy-rad)),j1=Math.min(N-1,Math.ceil(cy+rad));
   if(i0>i1||j0>j1)return;
-  if(tool==='erode'){erodeDroplets(H,N,Math.round(40*st+6),1.2,stroke.rng,{x:cx,y:cy,r:rad},S.shape.maxH);updateRegion(i0-2,j0-2,i1+2,j1+2);return}
+  if(tool==='erode'){erodeDroplets(H,N,Math.round(40*st+6),1.2,stroke.rng,{x:cx,y:cy,r:rad},S.shape.maxH);markRegion(i0-2,j0-2,i1+2,j1+2);return}
   let src=null,sw=0;if(tool==='smooth'||tool==='pinch'||tool==='smudge'){sw=i1-i0+5;src=new Float32Array(sw*(j1-j0+5));for(let j=j0-2;j<=j1+2;j++)for(let i=i0-2;i<=i1+2;i++)src[(j-j0+2)*sw+(i-i0+2)]=H[clamp(j,0,N-1)*N+clamp(i,0,N-1)]}
   const rn=stroke&&stroke.noise,pc=tool==='paint'&&PAINTS[S.paint].c,step=S.shape.maxH/10;
   for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){
@@ -59,14 +59,14 @@ function brushAt(cx,cy,amt,p){
       case'channel':H[k]=Math.max(0,H[k]-s*s*rate*1.6);WM[k]=Math.min(1,WM[k]+s*.3);break;
     }
   }
-  updateRegion(i0-1,j0-1,i1+1,j1+1);
+  markRegion(i0-1,j0-1,i1+1,j1+1);
 }
 function stampAt(p){
   const W=S.shape.world,g=(N-1)/W,rad=Math.max(2,S.brush.size*g),amp=Math.min(S.brush.size*1.1,S.shape.maxH*1.2)*S.brush.strength*1.6,rot=Math.random()*Math.PI*2,rn=makeNoise((Math.random()*1e9)|0),cs=Math.cos(rot),sn=Math.sin(rot);
   const go=(cx,cy)=>{i0=Math.max(0,Math.floor(cx-rad)),i1=Math.min(N-1,Math.ceil(cx+rad)),j0=Math.max(0,Math.floor(cy-rad)),j1=Math.min(N-1,Math.ceil(cy+rad));
     for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const dx=(i-cx)/rad,dy=(j-cy)/rad,d=Math.hypot(dx,dy);if(d>=1.15)continue;const ax=dx*cs-dy*sn,ay=dx*sn+dy*cs,v=stampProfile(S.stamp,d,ax,ay,rn)*amp,k=j*N+i;
       H[k]=Math.max(0,H[k]+v)}
-    updateRegion(i0-1,j0-1,i1+1,j1+1)};
+    markRegion(i0-1,j0-1,i1+1,j1+1)};
   for(const [x,y] of symPoints(p.gx,p.gy))go(x,y);
 }
 function symPoints(gx,gy){const c=(N-1)/2,o=[[gx,gy]],sy=S.brush.mirror&&S.brush.sym==='none'?'x':S.brush.sym;

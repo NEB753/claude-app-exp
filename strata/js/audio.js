@@ -9,7 +9,7 @@ function auInit(){
    tap delay), which made every sound feel late. A silent one-sample buffer wakes iOS's audio route on the first touch. */
 function auUnlock(){if(!AU.ctx)return;if(AU.ctx.state!=='running')AU.ctx.resume();if(!AU.unlocked){try{const s=AU.ctx.createBufferSource();s.buffer=AU.ctx.createBuffer(1,1,22050);s.connect(AU.ctx.destination);s.start(0);AU.unlocked=true}catch(e){}}}
 document.addEventListener('pointerdown',e=>{if(!SET.sound)return;auInit();auUnlock();
-  const t=e.target;if(!t||!t.closest||t.closest('[disabled]'))return;if(t.closest('.toggle'))sfx('toggle');else if(t.closest('.press,.seg button,#dock button,.chip,.swatch,.pcard'))sfx('tap')},{capture:true,passive:true});
+  const t=e.target;if(!t||!t.closest||t.closest('[disabled]'))return;{const tg=t.closest('.toggle');if(tg){const c=tg.querySelector('input');sfx(c&&c.checked?'off':'on');return}}if(t.closest('.press,.seg button,#dock button,.chip,.swatch,.pcard'))sfx('tap')},{capture:true,passive:true});
 document.addEventListener('keydown',()=>{if(SET.sound){auInit();auUnlock()}},{capture:true,passive:true});
 function auVol(){if(AU.master)AU.master.gain.value=SET.sound?(SET.volume??.6)*.5:0}
 function blip(f0,f1,dur,vol,type){if(!SET.sound||!AU.ctx)return;const t=AU.ctx.currentTime,o=AU.ctx.createOscillator(),g=AU.ctx.createGain();o.type=type||'sine';o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(Math.max(30,f1),t+dur);
@@ -18,6 +18,10 @@ function sfx(kind){
   if(!SET.sound||!AU.ctx)return;const now=performance.now();
   if(kind==='tick'){if(now-AU.lastTick<35)return;AU.lastTick=now;blip(2400,1800,.018,.05,'triangle');return}
   if(kind==='tap')return blip(1100,700,.045,.07);
+  if(kind==='snap')return blip(520,340,.07,.06,'triangle');
+  if(kind==='close')return blip(620,300,.09,.05);
+  if(kind==='on')return blip(700,1180,.07,.07);
+  if(kind==='off')return blip(900,520,.07,.06);
   if(kind==='toggle')return blip(660,990,.06,.07);
   if(kind==='pop')return blip(420,880,.09,.08);
   if(kind==='thud')return blip(140,55,.18,.18,'sine');
@@ -36,3 +40,6 @@ function loopOn(name,level){
 function loopOff(name){const L=AU.loops[name];if(!L||!AU.ctx)return;L.g.gain.setTargetAtTime(0,AU.ctx.currentTime,.15);setTimeout(()=>{if(AU.loops[name]!==L)return;try{L.s.stop();L.lfo&&L.lfo.stop()}catch(e){}delete AU.loops[name]},700)}
 function loopsOff(){for(const k in AU.loops)loopOff(k)}
 
+
+/* slider ticks rise in pitch with the value, so you can hear where you are */
+function tickAt(p){if(!SET.sound||!AU.ctx)return;const now=performance.now();if(now-AU.lastTick<28)return;AU.lastTick=now;const f=900+p*1700;blip(f,f*.8,.016,.045,'triangle')}

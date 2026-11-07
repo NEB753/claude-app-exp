@@ -83,3 +83,38 @@ A phone-first terrain studio with no build step. It uses Three.js r128 from cdnj
   - Going down each column, nearer ridges hide farther ones and slopes are capped at real rock and forest angles.
   - Every visible point is projected through a ~65° camera to its real place on the map. Far peaks land far away and tall, near hills close and low, valleys open between ridges, and lakes lie flat in front of the mountains. Hidden backsides are filled smoothly.
   - The result opens from the photographer's eye position.
+
+**V1.5**
+- **Updates always arrive**:
+  - The service worker now loads app code network-first, and each build stamps its own cache name.
+  - The installed app no longer keeps old scripts. That's why earlier appearance changes didn't show there.
+  - The GitHub Pages site updates when this branch is merged to main.
+- **Settings window** (gear in the top bar, or `,` on desktop):
+  - Look & feel presets: Studio, Minimal, Focus, Night.
+  - Layout: **Sheet**, **Floating** (a small window), or **Minimal** (icon pill dock; panels tuck away when you touch the land).
+  - Dock labels on/off, interface size, colors and style.
+  - **Power**: Battery saver (30 fps, no blur), Balanced (60 fps, lighter glass while moving), or Max (uncapped / ProMotion).
+- **Fluid input**:
+  - Sliders own horizontal drags and never hand off to page scrolling. Labels still scroll the panel.
+  - Sheet drags and brush updates are coalesced to one layout per frame.
+  - Glass panels simplify while the scene moves.
+  - Sounds: slider ticks follow pitch, toggles sound different on and off, detents snap.
+  - Ripples, staggered panel entry, and animated accordions.
+- **Real textures**:
+  - CC0 Poly Haven materials (grass, rock, dirt, sand, snow) shipped in `tex/` at 1K (Battery/Balanced), 2K with normal maps (Pro), and 4K grass/rock (Ultra). Poly Haven's CDN is the fallback.
+  - Splat weights follow the biome rules; rock is projected from three directions on cliffs.
+  - Two tile scales blend with distance so detail reads from close-ups to map views.
+- **Pro/Ultra models**: layered conifers, branching broadleaf crowns, curved grass, eroded boulders with lichen, and barked logs. Vertex AO is baked in.
+- **Ultra sculpting**:
+  - Dabs update once per frame, which is far faster on 513² and 1025².
+  - Resolution stays high while sculpting on Pro/Ultra.
+  - Moving up a tier adds real detail instead of a blurry upscale.
+- **Photo to terrain**:
+  - The photo's colors are projected onto the slopes the camera saw.
+  - The skyline is matched by rendering the reconstructed terrain from the photographer's view and correcting heights; typically within 1–3 px of 256 rows.
+  - Height uses the reconstruction directly (no default exaggeration), and detail is only added on real relief.
+  - When AI is on, its distance and peak-height estimates set the real-world scale.
+- **Landforms** (Gaea-style), each available as a generation type, a preset and a node: Tectonic range, Fjords, Glacial valley, Badlands, Karst towers, Rift valley, Highland plateau, Atoll. New nodes: Rugged, Shear, Slump, Sea floor, Talus mask, Snow field.
+- **Desktop workspace**:
+  - Inspector with a clickable minimap, height histogram with the sea line, live stats and FPS, world controls and layer toggles.
+  - Full keyboard map (press `?`).

@@ -1,0 +1,6 @@
+Terrain textures in this folder are CC0 (public domain) from Poly Haven (https://polyhaven.com), re-encoded as JPEG:
+- grass: rocky_terrain_02
+- dry: coast_sand_01
+- rock: aerial_rocks_02
+- snow: snow_field_aerial
+- sand: aerial_beach_01

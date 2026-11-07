@@ -28,16 +28,16 @@ function bindSliders(root,onChange,defOf){
     const q=x=>{x=clamp(Math.round(x/step)*step,min,max);return +x.toFixed(5)};
     const draw=()=>{const p=(v-min)/(max-min)*100;fi.style.width=p+'%';th.style.left=p+'%';bub.style.left=p+'%';bub.textContent=FMT[k](v);val.textContent=FMT[k](v);sl.setAttribute('aria-valuenow',v)};draw();
     let raf=0;const emit=commit=>{if(commit){cancelAnimationFrame(raf);raf=0;onChange(k,v,true);return}if(raf)return;raf=requestAnimationFrame(()=>{raf=0;onChange(k,v,false)})};
-    const setV=(x,commit,anim)=>{const nv=q(x);if(anim){sl.classList.add('anim');setTimeout(()=>sl.classList.remove('anim'),380)}if(nv!==v){v=nv;draw();haptic(4)}emit(commit)};
+    const setV=(x,commit,anim)=>{const nv=q(x);if(anim){sl.classList.add('anim');setTimeout(()=>sl.classList.remove('anim'),380)}if(nv!==v){v=nv;draw();haptic(4);val.classList.remove('tick');void val.offsetWidth;val.classList.add('tick')}emit(commit)};
     const reset=()=>{const d=defOf?defOf(k):(row.dataset.def!==''?+row.dataset.def:defK(k));if(d!=null&&!isNaN(d)){setV(+d,true,true);toast(lab.textContent+' reset')}};
     let st=null,lastTap=0;
-    sl.onpointerdown=e=>{st={x:e.clientX,y:e.clientY,lx:e.clientX,v0:v,t:performance.now(),drag:false,id:e.pointerId,lp:setTimeout(()=>{if(st&&!st.drag){st.long=true;sl.classList.remove('on');openMenu(sl,[{v:'reset',label:'Reset to default',icon:IC.reset},{v:'rand',label:'Randomize',icon:IC.dice},{v:'type',label:'Type a value',icon:IC.type}],a=>{if(a==='reset')reset();else if(a==='rand')setV(min+Math.random()*(max-min),true,true);else val.click()})}},520)}};
+    sl.onpointerdown=e=>{e.preventDefault();st={x:e.clientX,y:e.clientY,lx:e.clientX,v0:v,t:performance.now(),drag:false,id:e.pointerId,lp:setTimeout(()=>{if(st&&!st.drag){st.long=true;sl.classList.remove('on');openMenu(sl,[{v:'reset',label:'Reset to default',icon:IC.reset},{v:'rand',label:'Randomize',icon:IC.dice},{v:'type',label:'Type a value',icon:IC.type}],a=>{if(a==='reset')reset();else if(a==='rand')setV(min+Math.random()*(max-min),true,true);else val.click()})}},520)}};
     sl.onpointermove=e=>{if(!st||st.long)return;const dx=e.clientX-st.x,dy=e.clientY-st.y;
-      if(!st.drag){if(Math.abs(dx)>6&&Math.abs(dx)>Math.abs(dy)){st.drag=true;clearTimeout(st.lp);try{sl.setPointerCapture(st.id)}catch(_){}sl.classList.add('on')}else if(Math.abs(dy)>8){clearTimeout(st.lp);st=null}return}
+      if(!st.drag){if(Math.abs(dx)>3||Math.abs(dy)>10){st.drag=true;clearTimeout(st.lp);try{sl.setPointerCapture(st.id)}catch(_){}sl.classList.add('on')}else return}
       const w=sl.getBoundingClientRect().width,away=Math.max(0,Math.abs(dy)-24),fine=1/(1+away/40);sl.classList.toggle('fine',fine<.6);
       if(st.raw==null)st.raw=v;st.raw=clamp(st.raw+(e.clientX-st.lx)/w*(max-min)*fine,min,max);st.lx=e.clientX;
       const p=(st.raw-min)/(max-min)*100;fi.style.width=p+'%';th.style.left=p+'%';bub.style.left=p+'%';const nv=q(st.raw);
-      if(nv!==v){v=nv;bub.textContent=FMT[k](v);val.textContent=FMT[k](v);sl.setAttribute('aria-valuenow',v);haptic(3);emit(false)}};
+      if(nv!==v){v=nv;bub.textContent=FMT[k](v);val.textContent=FMT[k](v);sl.setAttribute('aria-valuenow',v);haptic(3);tickAt((v-min)/(max-min));emit(false)}};
     const up=e=>{if(!st)return;clearTimeout(st.lp);const s=st;st=null;sl.classList.remove('on','fine');if(s.long)return;
       if(s.drag){draw();emit(true);regenArmed=true;return}
       if(e.type==='pointercancel')return;const now=performance.now();
@@ -111,17 +111,19 @@ const compact=()=>!document.body.classList.contains('ui-large');
 const regular=()=>document.body.classList.contains('ui-regular');
 function detentH(s){const dockH=compact()?(regular()?66:60):72,top=insets.t+(compact()?(regular()?66:60):70),avail=innerHeight-top-dockH-insets.b-22;const pk=(compact()?(regular()?176:162):196)+(S.tab==='create'&&S.sub.create==='generate'?(compact()?(regular()?38:26):30):0);return s==='peek'?Math.min(pk,avail):s==='full'?avail:Math.min(Math.max(innerHeight*.45,300),avail)}
 function layoutSheet(h){
+  $('#bottom').classList.toggle('closed',sheetState==='closed'&&h==null);if(sheetState==='closed'&&h==null){setViewShift(0);return}
   if(landscape()){setViewShift(0,178);return}
-  if(wide()){setViewShift(0);return}
+  if(wide()){setViewShift(0,document.body.classList.contains('desk-insp')?157:0);return}
   const H_=h!=null?h:detentH(sheetState);$('#sheet').style.setProperty('--sheet-h',H_+'px');$('#bottom').style.setProperty('--sheet-h',H_+'px');
   const topY=insets.t+66,botY=innerHeight-H_-(compact()?60:72)-insets.b-20,c=(topY+botY)/2;setViewShift(Math.max(0,innerHeight/2-c));
 }
-function setDetent(s){sheetState=s;document.body.classList.toggle('sheet-full',s==='full');layoutSheet();haptic(5)}
+function setDetent(s){const was=sheetState;sheetState=s;document.body.classList.toggle('sheet-full',s==='full');layoutSheet();haptic(5);if(was!==s)sfx(s==='closed'?'close':'snap')}
+const tucks=()=>SET.layout==='float'||SET.layout==='minimal';
 function sheetGesture(el,allowSwipe){const sh=$('#sheet');let st=null;
   el.addEventListener('pointerdown',e=>{if(e.target.closest('button,input,textarea,.dd'))return;st={x:e.clientX,y:e.clientY,h:sh.getBoundingClientRect().height,mode:null,id:e.pointerId}});
   el.addEventListener('pointermove',e=>{if(!st)return;const dx=e.clientX-st.x,dy=e.clientY-st.y;
     if(!st.mode){if(Math.abs(dy)>6&&Math.abs(dy)>=Math.abs(dx)){st.mode='v';sh.classList.add('dragging');try{el.setPointerCapture(st.id)}catch(_){}}else if(allowSwipe&&Math.abs(dx)>10){st.mode='h';try{el.setPointerCapture(st.id)}catch(_){}}else return}
-    if(st.mode==='v')layoutSheet(clamp(st.h-dy,110,detentH('full')))});
+    if(st.mode==='v'){st.want=clamp(st.h-dy,110,detentH('full'));if(!st.raf)st.raf=requestAnimationFrame(()=>{if(st){st.raf=0;layoutSheet(st.want)}})}});/* one layout per frame */
   const up=e=>{if(!st)return;const s=st;st=null;sh.classList.remove('dragging');
     if(s.mode==='v'){const h=sh.getBoundingClientRect().height,vy=e.clientY-s.y;let best='half',bd=1e9;for(const d of ['peek','half','full']){const dd=Math.abs(detentH(d)-h);if(dd<bd){bd=dd;best=d}}if(Math.abs(vy)>70)best=vy<0?(sheetState==='peek'?'half':'full'):(sheetState==='full'?'half':'peek');setDetent(best);return}
     if(s.mode==='h'){const dx=e.clientX-s.x;if(Math.abs(dx)>50){const i=TABS.findIndex(t=>t[0]===S.tab),n=clamp(i+(dx<0?1:-1),0,TABS.length-1);if(n!==i)switchTab(TABS[n][0],null,dx<0?'enter-r':'enter-l')}return}
@@ -134,7 +136,7 @@ function dockIndicator(){const b=$(`#tab_${S.tab}`),ind=$('#dockInd');if(!b)retu
 let dockPress=0;
 $('#dock').addEventListener('pointerdown',e=>{const b=e.target.closest('[data-tab]');if(!b)return;dockPress=setTimeout(()=>{dockPress=-1;dockQuick(b)},520)});
 $('#dock').addEventListener('pointerup',()=>{if(dockPress>0)clearTimeout(dockPress)});
-$('#dock').onclick=e=>{const b=e.target.closest('[data-tab]');if(!b)return;if(dockPress===-1){dockPress=0;return}const t=b.dataset.tab;if(t===S.tab){setDetent(sheetState==='peek'?(DETENT_DEFAULT[t]==='peek'?'half':DETENT_DEFAULT[t]):'peek');return}
+$('#dock').onclick=e=>{const b=e.target.closest('[data-tab]');if(!b)return;if(dockPress===-1){dockPress=0;return}const t=b.dataset.tab;if(t===S.tab){if(tucks()){setDetent(sheetState==='closed'?(DETENT_DEFAULT[t]||'peek'):'closed');return}setDetent(sheetState==='peek'?(DETENT_DEFAULT[t]==='peek'?'half':DETENT_DEFAULT[t]):'peek');return}
   const i=TABS.findIndex(x=>x[0]===S.tab),j=TABS.findIndex(x=>x[0]===t);switchTab(t,null,j>i?'enter-r':'enter-l')};
 function dockQuick(b){const t=b.dataset.tab;haptic(14);const items={
   create:[{v:()=>{S.seed=(Math.random()*1e6)|0;regenerate();toast('Seed '+S.seed)},label:'New random seed',icon:IC.dice},{v:()=>switchTab('create','nodes'),label:'Open nodes',icon:IC.stamp},{v:()=>{switchTab('create','photo');pickPhoto()},label:'Build from a photo',icon:IC.cabin}],
@@ -145,7 +147,7 @@ function dockQuick(b){const t=b.dataset.tab;haptic(14);const items={
   openMenu(b,items,f=>f())}
 function switchTab(t,sub,anim){S.tab=t;if(sub){if(t==='create')S.sub.create=sub;if(t==='simulate')S.sub.sim=sub}
   if(t==='sculpt'&&S.mode!=='sculpt')setMode('sculpt');if(t!=='sculpt'&&t!=='simulate'&&['spring','channel','vent'].includes(S.tool))S.tool='raise';if(t!=='sculpt'&&S.mode==='sculpt'&&!(t==='simulate'&&['spring','channel','vent'].includes(S.tool)))setMode('orbit');
-  setDetent(t==='create'&&S.sub.create==='nodes'?'full':DETENT_DEFAULT[t]||'half');renderSheet(anim||'enter');saveSoon()}
+  setDetent(t==='create'&&S.sub.create==='nodes'?(SET.layout==='float'?'half':'full'):DETENT_DEFAULT[t]||'half');renderSheet(anim||'enter');saveSoon()}
 function setMode(m){S.mode=m;const o=$('#modeOrbit'),s=$('#modeSculpt');o.setAttribute('aria-pressed',m==='orbit');s.setAttribute('aria-pressed',m==='sculpt');o.className='press'+(m==='orbit'?' anodized':'');s.className='press'+(m==='sculpt'?' anodized':'');
   $('#hud').hidden=m!=='sculpt'||!['raise','lower','smooth','flatten','roughen','terrace','erode','stamp','paint','plant','channel'].includes(S.tool);drawHud();
   if(m==='orbit'){placeRing(null);$('#readout').hidden=true}else if(SET.hints)toast(matchMedia('(pointer:coarse)').matches?'One finger uses the tool · two fingers move the camera':'Drag uses the tool · right-drag orbits · [ ] resize');
@@ -214,6 +216,7 @@ function renderSheet(anim){
       <div class="pcards" id="pcards">${Object.keys(PRESETS).map(k=>`<button class="pcard press" data-preset="${esc(k)}" aria-pressed="${S.preset===k}"><img alt="" src="${presetThumb(k)}"><span>${esc(k)}</span></button>`).join('')}</div>
       ${prompt_('genPrompt','Describe a landscape…')}
       <details class="acc" id="fine"${fineOpen?' open':''}><summary>Fine-tune<span class="sum">seed ${S.seed}</span><span class="chev" style="margin-left:8px">${CHEVR}</span></summary><div class="acc-body">
+      <div class="label" style="margin-top:0">Landform</div><div class="chips" id="lfChips">${Object.entries(LANDFORMS).map(([k,l])=>`<button class="chipb press" data-lf="${k}" aria-pressed="${(S.shape.type||'standard')===k}" title="${l.d}">${l.n}</button>`).join('')}</div>${(S.shape.type||'standard')!=='standard'?sliderRow('shape.typeAmt','Strength',0,1,.01,null,1,pct):''}
       <div class="padwrap"><div class="pad" id="pad" role="slider" aria-label="Character pad: ruggedness and age" tabindex="0"><span class="ax" style="left:50%;top:8px;transform:translateX(-50%)">Young</span><span class="ax" style="left:50%;bottom:8px;transform:translateX(-50%)">Ancient</span><span class="ax" style="left:9px;top:50%;transform:translateY(-50%)">Gentle</span><span class="ax" style="right:9px;top:50%;transform:translateY(-50%)">Rugged</span><div class="knob" id="knob"></div></div><div class="preview"><canvas id="genPrev"></canvas></div></div>
       <div class="label">Seed & variations</div><div class="seedrow"><label class="seed" for="seedIn"><span>Seed</span><input id="seedIn" inputmode="numeric" value="${S.seed}"></label><button class="btn metal press" id="dice" style="flex:none;min-width:0;width:44px;padding:0" aria-label="Random seed">${svg(IC.dice)}</button><button class="btn plain press" id="reroll" style="flex:none;min-width:0;padding:0 14px">More</button></div>
       <div class="vars" id="vars">${[0,1,2,3].map(i=>`<button class="press" data-var="${i}"><canvas></canvas><small></small></button>`).join('')}</div><div style="height:8px"></div>
@@ -227,7 +230,7 @@ function renderSheet(anim){
         <div style="flex:1;min-width:0"><div class="label" style="margin-top:0">Interpret as</div>${ddBtn('modeDD',PHOTO_MODES[P.mode].n,'metal wide')}<p class="hint">${PHOTO_MODES[P.mode].d}</p></div></div>
       ${REF.status?`<p class="ai-note" style="margin-top:10px">${esc(REF.status)}</p>`:''}<div style="height:6px"></div>
       ${sliderRow('photo.height','Height',0,1,.01,null,.6,pct)+sliderRow('photo.detail','Roughness',0,1,.01,null,.2,pct)+sliderRow('photo.blur','Smoothing',0,8,1,null,2)}
-      ${tg('photo.quick','Build as soon as I pick an image','One tap: pick, watch the analysis, done')}${tg('photo.ai','AI reading','Claude studies style, light, water, roads, bridges, buildings and props')}${tg('photo.thin','Ignore thin lines','Keeps roads, fences and wires from becoming ridges')}${tg('photo.scatter','Grow what the AI sees','Sets forest, bush, grass and rock density')}${tg('photo.palette','Match colors to the image','Builds a natural palette from the picture')}${tg('photo.colors','Paint the image on top','For top-down maps and aerial photos')}${tg('photo.invert','Invert brightness')}${tg('photo.pin','Pin reference on screen','Sculpt by eye against the picture')}
+      ${tg('photo.quick','Build as soon as I pick an image','One tap: pick, watch the analysis, done')}${tg('photo.ai','AI reading','Claude studies style, light, water, roads, bridges, buildings and props')}${tg('photo.thin','Ignore thin lines','Keeps roads, fences and wires from becoming ridges')}${tg('photo.scatter','Grow what the AI sees','Sets forest, bush, grass and rock density')}${tg('photo.project','Paint the photo onto the land','Ground photos: what the camera saw colors the slopes it shows')}${tg('photo.palette','Match colors to the image','Builds a natural palette from the picture')}${tg('photo.colors','Paint the image on top','For top-down maps and aerial photos')}${tg('photo.invert','Invert brightness')}${tg('photo.pin','Pin reference on screen','Sculpt by eye against the picture')}
       <div class="btns"><button class="btn anodized press" id="photoBuild" ${REF.img?'':'disabled'}>Build terrain</button></div>${REF.ai?`<div class="btns"><button class="btn plain press" id="photoReread">Read again with AI</button></div>`:''}
       <p class="tip" style="margin-top:12px">${TIPS.photo}</p>`}
   }else if(t==='sculpt'){
@@ -296,6 +299,7 @@ function bindPanel(t){
   pb('genPrompt','generate');pb('nodePrompt','nodes');pb('simPrompt','simulate');
   if(t==='create'&&S.sub.create==='generate'){
     on('newWorld',newWorld);on('newVar',newVariation);
+    $$('[data-lf]',b).forEach(x=>x.onclick=()=>{S.shape.type=x.dataset.lf;S.shape.typeAmt=S.shape.typeAmt??1;S.preset='Custom';regenerate();sfx('pop');renderSheet();toast(LANDFORMS[x.dataset.lf].n+' · '+LANDFORMS[x.dataset.lf].d)});
     $$('[data-preset]',b).forEach(x=>x.onclick=()=>{const k=x.dataset.preset;if(k===S.preset){newVariation();return}applyPreset(k);toast(k,'ok')});
     const pc=$('#pcards',b),cur=pc&&pc.querySelector('[aria-pressed="true"]');if(cur)requestAnimationFrame(()=>{pc.scrollLeft=Math.max(0,cur.offsetLeft-pc.clientWidth/2+cur.offsetWidth/2)});
     const fine=$('#fine',b),fill=()=>{drawPreview();drawVariations();renderFacts()};fine.ontoggle=()=>{fineOpen=fine.open;if(fine.open)fill()};
@@ -371,3 +375,8 @@ $('#camBtn').onclick=()=>camEnter();
 $('#clearBtn').onclick=()=>{document.body.classList.add('clear');$('#clearExit').hidden=false;placeRing(null);setViewShift(0,0);toast('Clear view · tap Show tools to bring them back')};
 $('#clearExit').onclick=()=>{document.body.classList.remove('clear');$('#clearExit').hidden=true;layoutSheet()};
 $('#queueBtn').onclick=e=>openQueue(e.currentTarget);
+
+/* minimal layout: touching the land tucks the panel away so the whole screen is the terrain */
+$('#view').addEventListener('pointerdown',()=>{if(SET.layout==='minimal'&&sheetState!=='closed'&&S.mode!=='sculpt')setDetent('closed')},{passive:true});
+/* ripple from the touch point on any pressable control */
+document.addEventListener('pointerdown',e=>{if(SET.reduceMotion)return;const b=e.target.closest&&e.target.closest('.btn,.chipb,.pcard,.uipre button,.layopt button,.tool,#dock button');if(!b)return;const r=b.getBoundingClientRect(),d=document.createElement('span');d.className='rip';d.style.setProperty('--rx',(e.clientX-r.left)+'px');d.style.setProperty('--ry',(e.clientY-r.top)+'px');b.appendChild(d);setTimeout(()=>d.remove(),520)},{capture:true,passive:true});

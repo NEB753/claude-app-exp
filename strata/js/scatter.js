@@ -3,9 +3,9 @@
 function colored(g,rgb){g=g.index?g.toNonIndexed():g;const n=g.attributes.position.count,c=new Float32Array(n*3),l=rgb.map(toLin);for(let i=0;i<n;i++){c[i*3]=l[0];c[i*3+1]=l[1];c[i*3+2]=l[2]}g.setAttribute('color',new THREE.BufferAttribute(c,3));if(g.attributes.uv)g.deleteAttribute('uv');return g}
 function mergeGeos(list){
   let n=0;for(const g of list)n+=g.attributes.position.count;
-  const pos=new Float32Array(n*3),col=new Float32Array(n*3);let o=0;
-  for(const g of list){pos.set(g.attributes.position.array,o*3);col.set(g.attributes.color.array,o*3);o+=g.attributes.position.count}
-  const m=new THREE.BufferGeometry();m.setAttribute('position',new THREE.BufferAttribute(pos,3));m.setAttribute('color',new THREE.BufferAttribute(col,3));m.computeVertexNormals();return m;
+  const pos=new Float32Array(n*3),col=new Float32Array(n*3),nor=new Float32Array(n*3);let o=0;
+  for(const g of list){if(!g.attributes.normal)g.computeVertexNormals();pos.set(g.attributes.position.array,o*3);col.set(g.attributes.color.array,o*3);nor.set(g.attributes.normal.array,o*3);o+=g.attributes.position.count}
+  const m=new THREE.BufferGeometry();m.setAttribute('position',new THREE.BufferAttribute(pos,3));m.setAttribute('color',new THREE.BufferAttribute(col,3));m.setAttribute('normal',new THREE.BufferAttribute(nor,3));return m;
 }
 const G=THREE;
 function assetGeos(){
@@ -57,6 +57,51 @@ function assetGeos(){
 }
 const ASSETS=assetGeos();
 const scatterMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.88,metalness:0,flatShading:true,envMapIntensity:.45});
+/* ---- high-detail models for Pro and Ultra: layered drooping conifer skirts, branching broadleaf crowns built from
+   noise-displaced leaf clusters, curved grass blades, eroded boulders with lichen, barked logs. Vertex colors carry
+   ambient occlusion (darker inside and low in the crown) so the forests read with depth. */
+function shadeGeo(g,fn){if(g.index){g.computeVertexNormals();g=g.toNonIndexed()}else g.computeVertexNormals();const p=g.attributes.position,n=p.count,c=new Float32Array(n*3);for(let i=0;i<n;i++){const r=fn(p.getX(i),p.getY(i),p.getZ(i));c[i*3]=toLin(r[0]);c[i*3+1]=toLin(r[1]);c[i*3+2]=toLin(r[2])}g.setAttribute('color',new THREE.BufferAttribute(c,3));if(g.attributes.uv)g.deleteAttribute('uv');return g}
+function displace(g,amp,freq,seed,keepBottom){const p=g.attributes.position,n=makeNoise(seed);for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),l=Math.hypot(x,y,z)||1,d=1+amp*(n(x*freq+seed,z*freq-y*freq)*.7+n(x*freq*2.3,y*freq*2.3+z)*.3);p.setXYZ(i,x*d,keepBottom&&y<0?y*.35:y*d,z*d)}return g}
+const mixc=(a,b,t)=>[lerp(a[0],b[0],t),lerp(a[1],b[1],t),lerp(a[2],b[2],t)];
+function assetGeosHD(){
+  const A={},rn=mulberry32(77);
+  /* conifer: 9 drooping skirts, jittered rims, dark core to sunlit tips */
+  const con=[shadeGeo(new G.CylinderGeometry(.03,.06,.5,7,1).translate(0,.25,0),(x,y)=>mixc([70,50,36],[104,76,52],y/.5))];
+  for(let t=0;t<7;t++){const f=t/6,r=.36*(1-f*.82)+.04,h=.2+.06*(1-f),y=.22+f*.7,cg=new G.ConeGeometry(r,h,11,1,true);const p=cg.attributes.position;
+    for(let i=0;i<p.count;i++){const x=p.getX(i),yy=p.getY(i),z=p.getZ(i),rim=yy<-h*.3?1:0,a=Math.atan2(z,x),j=1+.18*Math.sin(a*7+t*1.7)*rim;p.setXYZ(i,x*j,yy-rim*.05*(1+Math.sin(a*5+t)),z*j)}
+    con.push(shadeGeo(cg.translate(0,y,0),(x,yy,z)=>{const out=Math.min(1,Math.hypot(x,z)/r),lo=(yy-y+h/2)/h;return mixc([22,44,30],[58+12*f,98+10*f,60],clamp(out*.75+lo*.25,0,1))}))}
+  A.conifer=mergeGeos(con);
+  const pin=[shadeGeo(new G.CylinderGeometry(.025,.05,.7,7,1).translate(0,.35,0),(x,y)=>mixc([84,60,42],[122,86,58],y/.7))];
+  for(let t=0;t<6;t++){const f=t/5,r=.24*(1-f*.7)+.03,h=.16,y=.5+f*.45,cg=new G.ConeGeometry(r,h,9,1,true);displace(cg,.12,6,t+3);pin.push(shadeGeo(cg.translate(0,y,0),(x,yy,z)=>mixc([20,40,32],[48,82,58],clamp(Math.hypot(x,z)/r,0,1))))}
+  A.pine=mergeGeos(pin);
+  /* broadleaf: trunk + 3 limbs, crown of 9 leaf clusters */
+  const bl=[shadeGeo(new G.CylinderGeometry(.035,.07,.5,8,1).translate(0,.25,0),()=>[92,68,48])];
+  for(let b=0;b<3;b++){const a=b/3*Math.PI*2+.4;bl.push(shadeGeo(new G.CylinderGeometry(.014,.028,.3,6).translate(0,.15,0).rotateZ(.7).rotateY(a).translate(0,.42,0),()=>[88,64,44]))}
+  for(let c=0;c<7;c++){const a=c/7*Math.PI*2*1.618,rr=c?(.12+.1*rn()):0,cy=.66+(c?(rn()-.3)*.18:.08),s=c?.15+.07*rn():.24,ico=displace(new G.IcosahedronGeometry(s,1),.22,5,c*7+1);
+    bl.push(shadeGeo(ico.translate(Math.cos(a)*rr,cy,Math.sin(a)*rr),(x,y,z)=>{const up=clamp((y-.5)/.4,0,1),out=clamp(Math.hypot(x,z)/.36,0,1);return mixc([40,62,30],[104+c*3,140,62],clamp(up*.6+out*.4,0,1))}))}
+  A.broadleaf=mergeGeos(bl);
+  const bi=[shadeGeo(new G.CylinderGeometry(.024,.038,.72,10,6).translate(0,.36,0),(x,y,z)=>{const band=Math.sin(y*58+Math.atan2(z,x)*2)>.82;return band?[54,50,46]:[232,228,218]})];
+  for(let c=0;c<6;c++){const a=c*2.4,rr=c?.09:0,cy=.62+c*.045,s=.12+.04*rn(),ico=displace(new G.IcosahedronGeometry(s,1),.2,6,c+40).scale(1,1.3,1);bi.push(shadeGeo(ico.translate(Math.cos(a)*rr,cy,Math.sin(a)*rr),(x,y,z)=>mixc([70,104,46],[150,176,86],clamp((y-.5)/.4,0,1))))}
+  A.birch=mergeGeos(bi);
+  const bu=[];for(let c=0;c<4;c++){const a=c*1.9,rr=c?.22+.08*rn():0,s=c?.22+.1*rn():.34,ico=displace(new G.IcosahedronGeometry(s,1),.25,5,c+60).scale(1,.72,1);bu.push(shadeGeo(ico.translate(Math.cos(a)*rr,s*.5,Math.sin(a)*rr),(x,y,z)=>mixc([40,64,34],[96,124,62],clamp(y/.5,0,1))))}
+  A.bush=mergeGeos(bu);
+  /* grass: 14 curved three-segment blades */
+  const gb=[];for(let i=0;i<10;i++){const a=i/10*Math.PI*2+rn(),len=.45+rn()*.35,lean=.25+rn()*.35,bg=new G.PlaneGeometry(.035,len,1,3).translate(0,len/2,0),p=bg.attributes.position;
+    for(let v=0;v<p.count;v++){const y=p.getY(v),t=y/len;p.setXYZ(v,p.getX(v)*(1-t*.85),y,t*t*lean)}bg.rotateY(a).translate(Math.cos(a)*.07,0,Math.sin(a)*.07);
+    gb.push(shadeGeo(bg,(x,y)=>mixc([58,82,34],[150,170,82],clamp(y/.7,0,1))))}
+  A.grass=mergeGeos(gb);
+  const bo=new G.IcosahedronGeometry(.5,2),bp=bo.attributes.position,bn=makeNoise(3);
+  for(let i=0;i<bp.count;i++){const x=bp.getX(i),y=bp.getY(i),z=bp.getZ(i),s=.8+.28*bn(x*2.2+y*1.3,z*2.2-y)+.08*bn(x*6,z*6+y*3)+.03*bn(x*15,y*15);bp.setXYZ(i,x*s,Math.max(-.12,y*s*.7)+.18,z*s*(.9+.1*bn(y*3,x)))}
+  A.boulder=mergeGeos([shadeGeo(bo,(x,y,z)=>{const top=clamp((y-.25)/.3,0,1),li=bn(x*5+9,z*5)>.35?top:0;return mixc(mixc([92,90,86],[146,142,134],clamp(y/.5,0,1)),[118,128,74],li*.7)})]);
+  A.log=mergeGeos([shadeGeo(new G.CylinderGeometry(.06,.075,1,12,4).rotateZ(Math.PI/2).translate(0,.065,0),(x,y,z)=>{const r=Math.sin(Math.atan2(z,y-.065)*14)*.5+.5;return mixc([70,52,38],[112,86,60],r)}),
+    shadeGeo(new G.CylinderGeometry(.075,.075,.02,12).rotateZ(Math.PI/2).translate(.505,.065,0),(x,y,z)=>{const d=Math.hypot(y-.065,z);return Math.sin(d*160)>0?[186,150,104]:[160,124,84]})]);
+  A.stump=mergeGeos([shadeGeo(new G.CylinderGeometry(.1,.15,.2,12,2).translate(0,.1,0),()=>[96,74,54]),shadeGeo(new G.CylinderGeometry(.1,.1,.01,12).translate(0,.205,0),(x,y,z)=>Math.sin(Math.hypot(x,z)*120)>0?[184,150,106]:[158,124,86])]);
+  for(const k in ASSETS)if(!A[k])A[k]=ASSETS[k];
+  return A;
+}
+let ASSETS_HD=null;const scatterMatHD=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.82,metalness:0,envMapIntensity:.5,side:THREE.DoubleSide});
+const hdTier=()=>S.quality==='pro'||S.quality==='ultra';
+
 const SCAT={};let scatterCounts={};
 const TREE_KEYS=['conifer','pine','broadleaf','birch','bush','grass','boulder','log','stump'];
 const STRUCT_KEYS=['cabin','house','tower','bridge','fence','well','lamp','crate','haybale'];
@@ -66,9 +111,10 @@ function ensureScatterMeshes(){
   const q=QUALITY[S.quality].scatter;
   for(const t of TREE_KEYS){
     const max=Math.round(SCATTER_TYPES[parentOf(t)].max*q*(t==='grass'||t==='bush'||t==='boulder'?1:.6));
-    if(SCAT[t]&&SCAT[t].userData.max===max)continue;
+    const hd=hdTier();if(hd&&!ASSETS_HD)ASSETS_HD=assetGeosHD();
+    if(SCAT[t]&&SCAT[t].userData.max===max&&SCAT[t].userData.hd===hd)continue;
     if(SCAT[t]){scene.remove(SCAT[t]);SCAT[t].dispose()}
-    const m=new THREE.InstancedMesh(ASSETS[t],scatterMat,max);m.userData.max=max;m.count=0;m.frustumCulled=false;
+    const m=new THREE.InstancedMesh(hd?ASSETS_HD[t]:ASSETS[t],hd?scatterMatHD:scatterMat,max);m.userData.max=max;m.userData.hd=hd;m.count=0;m.frustumCulled=false;
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);m.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(max*3),3);
     m.castShadow=t!=='grass'&&t!=='log'&&t!=='stump';m.receiveShadow=true;scene.add(m);SCAT[t]=m;
   }

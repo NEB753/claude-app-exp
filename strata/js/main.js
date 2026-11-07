@@ -8,8 +8,12 @@ function regenSoon(commit){
   regenT=setTimeout(()=>{const old=H.slice();genHeights();genMoist();clearLayers(false);S.structs=[];fluidSync();updateAll();if(commit)morphFrom(old);saveSoon();drawPreview()},N>257?0:90);
 }
 function recolorSoon(){if(recolorQ)return;recolorQ=true;requestAnimationFrame(()=>{recolorQ=false;updateAll();renderFacts();saveSoon()})}
-function applyPreset(name){const p=PRESETS[name];if(!p)return false;pushUndo();S.preset=name;S.shape={cone:0,crater:0,weather:.5,...p.shape};S.biome={...p.biome};S.macro={x:clamp(p.shape.ridges/.9,0,1),y:clamp((p.shape.warp-.12)/.55,0,1)};regenerate(false);frame(true);renderSheet();return true}
-function setRes(r){if(r===N)return;pushUndo();H=resample(H,N,r);PC=resample(PC,N,r,3);PW=resample(PW,N,r);SM=resample(SM,N,r);WM=resample(WM,N,r);MK=resample(MK,N,r);DF=resample(DF,N,r);N=r;genMoist();buildGeometry();terrain.material=MATS[S.view.look]||MATS.natural;fluidSync();updateAll()}
+function applyPreset(name){const p=PRESETS[name];if(!p)return false;pushUndo();S.preset=name;S.shape={cone:0,crater:0,weather:.5,type:'standard',typeAmt:1,...p.shape};S.biome={...p.biome};S.macro={x:clamp(p.shape.ridges/.9,0,1),y:clamp((p.shape.warp-.12)/.55,0,1)};regenerate(false);frame(true);renderSheet();return true}
+/* going up a quality tier: bilinear upsampling alone looks soft, so add fine detail where the land is already rough */
+function addUpscaleDetail(h,R,oldN){const n=makeNoise(S.seed+501),cell=S.shape.world/(R-1),f=(R-1)/(oldN-1),amp=S.shape.maxH*.006*Math.min(3,f);
+  for(let j=1;j<R-1;j++)for(let i=1;i<R-1;i++){const k=j*R+i,sl=Math.hypot(h[k+1]-h[k-1],h[k+R]-h[k-R])/(2*cell),rough=clamp(sl*1.6,0,1),u=i/(R-1),v=j/(R-1);
+    h[k]=Math.max(0,h[k]+amp*rough*(ridged(n,u*oldN*.35,v*oldN*.35,3,.5)-.45))}}
+function setRes(r){if(r===N)return;pushUndo();const up=r>N;H=resample(H,N,r);if(up)addUpscaleDetail(H,r,N);PC=resample(PC,N,r,3);PW=resample(PW,N,r);SM=resample(SM,N,r);WM=resample(WM,N,r);MK=resample(MK,N,r);DF=resample(DF,N,r);N=r;genMoist();buildGeometry();terrain.material=MATS[S.view.look]||MATS.natural;fluidSync();updateAll()}
 async function setQuality(q){
   if(!QUALITY[q]||q===S.quality)return;S.quality=q;const Q=QUALITY[q];
   if(SR.running)simStop(false);FL.R=0;LV.R=0;SN.R=0;WD.R=0;for(const k in OV)hideOverlay(k);
@@ -83,7 +87,7 @@ function beginStroke(p,e){
   applyBrush(p,1);emitDust(p,10,dustColor());loopOn('sculpt',.3);placeRing(p);showReadout(p);
   clearTimeout(sculptHideT);sculptHideT=setTimeout(()=>{if(stroke)document.body.classList.add('sculpting')},260);
 }
-function afterEdit(){if(baseDirty)rebuildBase();computeStats();updateWater();fluidSync();if(['paint','plant','mask','stamp'].includes(S.tool))scatterSoon(160);else scatterReseat();saveSoon();renderFacts()}
+function afterEdit(){flushRegion();if(baseDirty)rebuildBase();computeStats();updateWater();fluidSync();if(['paint','plant','mask','stamp'].includes(S.tool))scatterSoon(160);else scatterReseat();saveSoon();renderFacts()}
 function endStroke(cancel){stroke=null;loopOff('sculpt');clearTimeout(sculptHideT);document.body.classList.remove('sculpting');afterEdit();if(!hoverP){placeRing(null);$('#readout').hidden=true}}
 function strokeTick(now){
   if(!stroke)return;const dt=Math.min(.05,(now-stroke.last)/1000);stroke.last=now;
@@ -114,7 +118,7 @@ addEventListener('keydown',e=>{
   if(e.key==='['||e.key===']'){S.brush.size=clamp(S.brush.size*(e.key===']'?1.15:.87),5,S.shape.world*.3);drawHud();placeRing(hoverP);return}
   if(e.key===' '&&S.tab==='simulate'){e.preventDefault();const k=S.sub.sim;if(SR.running&&SR.kind===k)simStop(false);else simStart(k);return}
   if(e.key==='f'){frame(true);return}
-  const t=TOOLS[+e.key-1];if(t)setTool(t[0]);if(e.key==='0')setTool(TOOLS[9][0]);
+  if(S.mode==='sculpt'||e.shiftKey){const t=TOOLS[+e.key-1];if(t)setTool(t[0]);if(e.key==='0')setTool(TOOLS[9][0])}
 });
 $('#undo').onclick=undo;$('#redo').onclick=redo;
 
@@ -126,14 +130,20 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden)saveProject
 /* ---------------- loop & boot ---------------- */
 let lastAnim=0,lastT=0,lastCloud=0;
 function dustColor(){const t=S.tool;if(t==='paint'){const c=PAINTS[S.paint].c;return c?c.map(v=>v/255):[.9,.9,.9]}if(t==='mask')return[.95,.7,.2];if(t==='plant')return[.35,.6,.3];if(t==='erode')return[.55,.65,.75];return null}
+let movingCls=false,lastFrame=0;
 function loop(now){
   const dt=Math.min(.05,(now-(lastT||now))/1000);lastT=now;
   camTick(now);morphTick(now);strokeTick(now);simTick(now);fpTick(dt);dustTick(dt);CU.uClouds.value=S.view.clouds?1:0;
   if(S.view.clouds&&now-lastInteract<15000&&!document.hidden&&now-lastCloud>50){lastCloud=now;CU.uTime.value=now/1000;CU.uWorld.value=S.shape.world;dirty=true}
   const idle=now-lastInteract>15000;
   if(S.view.anim&&waterMesh&&waterMesh.visible&&!idle&&!document.hidden&&now-lastAnim>33){lastAnim=now;const tt=now/1000;WU.uWO1.value.set((tt*.011)%1,(tt*.006)%1);WU.uWO2.value.set((-tt*.017)%1,(tt*.013)%1);dirty=true}
-  camTickMode(now);adaptDPR(now,!!(stroke||camAnim||ptrs.size||(FP.on&&now-lastInteract<120)||(SR.running&&SR.kind!=='erode')||morph));
-  if(dirty){dirty=false;renderFrame()}
+  flushRegion();camTickMode(now);const act=!!(stroke||camAnim||ptrs.size||(FP.on&&now-lastInteract<120)||(SR.running&&SR.kind!=='erode')||morph);adaptDPR(now,act);
+  /* glass gets cheaper while the scene moves (re-blurring a moving canvas is the main GPU cost behind the panels) */
+  if(act!==movingCls){movingCls=act;document.body.classList.toggle('moving',act)}
+  /* frame pacing: battery saver caps at 30 fps; otherwise render every frame that has changes (ProMotion on Max) */
+  const cap=SET.power==='battery'?30:SET.power==='max'?0:60;
+  if(dirty&&(!cap||now-lastFrame>=1000/cap-2)){dirty=false;lastFrame=now;renderFrame()}
+  if(typeof inspTick==='function')inspTick(now);
   requestAnimationFrame(loop);
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{applyTheme()});
@@ -148,7 +158,7 @@ new MutationObserver(()=>applyTheme()).observe(document.documentElement,{attribu
   S.mode='orbit';prevMaxH=S.shape.maxH;genMoist();
   applyTheme();buildGeometry();terrain.material=MATS[S.view.look]||MATS.natural;applyQuality();updateAll();frame();
   ensureScatterMeshes();buildScatter();updateSpringMarkers();
-  setMode('orbit');sheetState=DETENT_DEFAULT[S.tab]||'half';layoutSheet();renderSheet('enter');syncUndo();
+  if(typeof layoutDesk==='function')layoutDesk();setMode('orbit');sheetState=SET.layout==='minimal'?'closed':DETENT_DEFAULT[S.tab]||'half';layoutSheet();renderSheet('enter');syncUndo();
   requestAnimationFrame(loop);
   toast(restored?'Welcome back · '+S.name:'Drag to orbit · double-tap to zoom in · long-press for quick actions');
   if(!restored)saveProject(true).catch(()=>{});
