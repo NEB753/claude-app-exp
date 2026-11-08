@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BeatForge Studio</title>
+  <meta name="description" content="Free all-in-one photo & video generator with a beat-synced PMV / music-video editor. Runs entirely in your browser." />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">◆</span> BeatForge <span class="brand-sub">Studio</span></div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="create" role="tab">✦ Create</button>
+      <button class="tab" data-tab="photo" role="tab">◐ Photo Lab</button>
+      <button class="tab" data-tab="beat" role="tab">♫ Beat Sync / PMV</button>
+    </nav>
+    <div class="topbar-right">
+      <button id="libToggle" class="btn ghost small">☰ Library</button>
+      <span class="pill">100% free · runs locally</span>
+    </div>
+  </header>
+
+  <div class="app">
+    <!-- ============ LIBRARY ============ -->
+    <aside id="library" class="library">
+      <div class="lib-head">
+        <h3>Media Library</h3>
+        <label class="btn small primary">+ Add files
+          <input id="fileInput" type="file" multiple accept="image/*,video/*,audio/*" hidden />
+        </label>
+      </div>
+      <div class="lib-filter" id="libFilter">
+        <button class="chip on" data-k="all">All</button>
+        <button class="chip" data-k="image">Images</button>
+        <button class="chip" data-k="video">Videos</button>
+        <button class="chip" data-k="audio">Audio</button>
+      </div>
+      <div id="libGrid" class="lib-grid"></div>
+      <div class="lib-empty" id="libEmpty">
+        <p><b>Drop images, videos or music anywhere.</b></p>
+        <p>Everything stays in your browser — nothing is uploaded.</p>
+      </div>
+      <div class="lib-foot">
+        <button class="btn ghost small" id="libSelAll">Use all visuals</button>
+        <button class="btn ghost small" id="libSelNone">Use none</button>
+        <button class="btn small" id="demoBtn" title="Generate demo images + a beat">✨ Demo</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- ============ CREATE ============ -->
+      <section class="panel active" id="tab-create">
+        <div class="workspace">
+          <div class="controls" id="createControls">
+            <div class="card">
+              <h4>Image generator</h4>
+              <label class="lbl">Prompt</label>
+              <textarea id="genPrompt" rows="3" placeholder="e.g. neon cyberpunk city at night, pink and cyan">neon synthwave sunset over a retro grid</textarea>
+              <div class="hint" id="genHint"></div>
+              <div id="genOpts"></div>
+              <div class="row">
+                <button class="btn primary grow" id="genBtn">✦ Generate</button>
+                <button class="btn" id="genRandom" title="Surprise me">🎲</button>
+              </div>
+            </div>
+            <div class="card">
+              <h4>Video generator</h4>
+              <div id="vidOpts"></div>
+              <button class="btn primary grow" id="vidBtn">▶ Render video</button>
+              <div class="progress" id="vidProg"><div></div></div>
+            </div>
+          </div>
+          <div class="stage">
+            <div class="stage-view" id="createStage">
+              <canvas id="createCanvas" width="1280" height="720"></canvas>
+              <video id="createVideo" controls playsinline hidden></video>
+            </div>
+            <div class="stage-actions" id="createActions">
+              <button class="btn" id="saveImgBtn">⤓ Save to library</button>
+              <button class="btn" id="dlImgBtn">⬇ Download PNG</button>
+              <button class="btn" id="toLabBtn">◐ Edit in Photo Lab</button>
+              <button class="btn" id="saveAllBtn">Save all variations</button>
+            </div>
+            <div class="results" id="genResults"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ PHOTO LAB ============ -->
+      <section class="panel" id="tab-photo">
+        <div class="workspace">
+          <div class="controls">
+            <div class="card">
+              <h4>Source</h4>
+              <select id="labSource"></select>
+              <div id="labFrameWrap" hidden><label class="lbl">Video frame <span id="labFrameVal"></span></label><input type="range" id="labFrame" min="0" max="1000" value="150" /></div>
+              <div class="hint">Pick any image or video from the library (or drop a file).</div>
+            </div>
+            <div class="card"><h4>Presets</h4><div class="chips" id="labPresets"></div></div>
+            <div class="card"><h4>Adjust</h4><div id="labAdjust"></div></div>
+            <div class="card"><h4>Effects</h4><div id="labFx"></div></div>
+            <div class="card"><h4>Text</h4><div id="labText"></div></div>
+            <div class="card"><h4>Frame</h4><div id="labFrameOpts"></div></div>
+          </div>
+          <div class="stage">
+            <div class="stage-view checker"><canvas id="labCanvas" width="1280" height="720"></canvas></div>
+            <div class="stage-actions">
+              <button class="btn primary" id="labSave">⤓ Save to library</button>
+              <button class="btn" id="labPng">⬇ PNG</button>
+              <button class="btn" id="labJpg">⬇ JPG</button>
+              <button class="btn ghost" id="labReset">Reset</button>
+              <button class="btn ghost" id="labCompare">Hold to compare</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ BEAT SYNC ============ -->
+      <section class="panel" id="tab-beat">
+        <div class="workspace">
+          <div class="controls" id="beatControls">
+            <div class="card">
+              <h4>1 · Music</h4>
+              <select id="bsAudio"></select>
+              <div class="row"><label class="btn small grow">Upload song<input type="file" id="bsAudioFile" accept="audio/*,video/*" hidden /></label></div>
+              <details class="sub" id="beatMaker">
+                <summary>🥁 No song? Generate a beat</summary>
+                <div id="bmOpts"></div>
+                <button class="btn small primary" id="bmBtn">Generate beat</button>
+              </details>
+              <div class="analysis" id="bsAnalysis">No music loaded.</div>
+              <div id="bsSyncOpts"></div>
+            </div>
+            <div class="card"><h4>Style presets</h4><div class="chips" id="bsPresets"></div></div>
+            <div class="card"><h4>2 · Clips</h4><div class="hint" id="bsClipInfo"></div><div id="bsClipOpts"></div></div>
+            <div class="card"><h4>3 · Cut rhythm <small>(pick several to mix)</small></h4><div class="chips" id="bsPatterns"></div><div id="bsRhythmOpts"></div></div>
+            <div class="card"><h4>4 · Transitions</h4><div class="chips" id="bsTrans"></div><div id="bsTransOpts"></div></div>
+            <div class="card"><h4>5 · Beat effects</h4><div id="bsFx"></div></div>
+            <div class="card"><h4>6 · Look &amp; text</h4><div id="bsLook"></div></div>
+            <div class="card"><h4>7 · Output</h4><div id="bsOut"></div></div>
+          </div>
+          <div class="stage">
+            <div class="stage-view" id="bsStage">
+              <canvas id="bsCanvas" width="1280" height="720"></canvas>
+              <div class="stage-overlay" id="bsOverlay">Add clips + music, then press ▶</div>
+            </div>
+            <div class="transport">
+              <button class="btn primary" id="bsPlay">▶ Play</button>
+              <button class="btn" id="bsReroll" title="Randomise all cuts">🎲 Re-roll cuts</button>
+              <label class="seed">seed <input id="bsSeed" type="number" /></label>
+              <span class="time" id="bsTime">0:00.0 / 0:00.0</span>
+              <span class="grow"></span>
+              <button class="btn primary" id="bsExport">⬇ Export video</button>
+            </div>
+            <canvas id="bsTimeline" class="timeline"></canvas>
+            <div class="timeline-bar">
+              <span id="bsSegInfo" class="hint">Click the timeline to seek · click a coloured block to select a cut</span>
+              <span class="grow"></span>
+              <button class="btn small" id="bsSegReroll" disabled>🎲 Re-roll selected cut</button>
+              <label class="hint"><input type="checkbox" id="bsZoomTl" /> zoom timeline</label>
+            </div>
+            <div class="progress" id="bsProg"><div></div></div>
+            <div class="export-result" id="bsResult"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="dropHint">Drop to add to library</div>
+
+  <script src="js/util.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/library.js"></script>
+  <script src="js/fx.js"></script>
+  <script src="js/generator.js"></script>
+  <script src="js/beatsync.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
