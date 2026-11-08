@@ -32,7 +32,7 @@ It works as a static site, so it also runs on GitHub Pages, Netlify and similar 
 
 ### ♫ Beat Sync / PMV generator
 1. **Music:** upload a song, use the audio from any video, or **generate a beat** with the built-in synth. The synth has 10 genres (house, techno, trap, boom bap, DnB, dubstep, reggaeton, phonk, breakbeat and disco) and offers an intro → build-up → drop structure. Generated beats have a sample-exact beat grid.
-2. **Beat detection:** tempo comes from autocorrelation, and beats from a dynamic-programming tracker. It also finds downbeats and separate kick, snare and hi-hat hits. You can force a BPM, nudge the sync, or change hit sensitivity.
+2. **Beat detection:** tempo comes from autocorrelation, and beats from a dynamic-programming tracker. It also finds downbeats and separate kick, snare and hi-hat hits. You can force a BPM, nudge the sync, shift the grid by half a beat, move the bar start, or change hit sensitivity.
 3. **Clips:** pick any videos or images in the library. Clip order can be shuffled, random or sequential. Start points can be random, forward-skipping or continuous. You can also skip clip intros and outros, add stutter/repeat cuts, and add random speed ramps (0.5×–2×). Images get Ken Burns motion.
 4. **Cut rhythm:** 17 beat types. You can mix several and switch between them every N bars:
    - every beat, every 2 beats, every bar or every 2 bars

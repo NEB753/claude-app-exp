@@ -203,24 +203,35 @@
       high: pickPeaks(envHigh, fps, delta, 0.06, timeOf),
     };
 
+    // drum-weighted envelope for tempo & beat tracking (kicks/snares define the pulse more than hats)
+    const envBeat = new Float32Array(frames);
+    for (let i = 0; i < frames; i++) envBeat[i] = 0.5 * env[i] + envLow[i] + 0.6 * envMid[i];
+    const envB = normalizeStd(envBeat);
+
     // ---- tempo via weighted autocorrelation ----
     const minBpm = opts.minBpm || 60, maxBpm = opts.maxBpm || 200;
     const minLag = Math.floor((fps * 60) / maxBpm), maxLag = Math.ceil((fps * 60) / minBpm);
-    const ac = new Float32Array(maxLag + 2);
+    const acMax = maxLag * 4 + 2;
+    const ac = new Float32Array(acMax + 1);
     const L = Math.min(frames, Math.round(fps * 90)); // first ~90 s is plenty
     const off = Math.max(0, Math.floor((frames - L) / 3));
-    for (let lag = minLag; lag <= maxLag + 1; lag++) {
+    for (let lag = 1; lag <= acMax; lag++) {
       let s = 0;
-      for (let i = off; i < off + L - lag; i++) s += env[i] * env[i + lag];
+      for (let i = off; i < off + L - lag; i++) s += envB[i] * envB[i + lag];
       ac[lag] = s / Math.max(1, L - lag);
     }
+    const acAt = (x) => { const i = Math.floor(x), f = x - i; return i + 1 > acMax ? 0 : ac[i] * (1 - f) + ac[i + 1] * f; };
     const lag120 = fps * 0.5;
+    // a true beat period repeats at 2x/3x/4x (half-bars, bars) and subdivides into strong 8th notes
+    const harmScore = (lag) => acAt(lag) + 0.5 * acAt(lag * 2) + 0.33 * acAt(lag * 3) + 0.25 * acAt(lag * 4) + 0.5 * acAt(lag / 2);
     let best = minLag, bestV = -1;
     for (let lag = minLag; lag <= maxLag; lag++) {
-      const wgt = Math.exp(-0.5 * Math.pow(Math.log2(lag / lag120) / 0.9, 2));
-      const v = ac[lag] * wgt;
+      // a true beat period also repeats at 2x, 3x and 4x (half-bars, bars)
+      const v = harmScore(lag) * Math.exp(-0.5 * Math.pow(Math.log2(lag / lag120) / 1.1, 2));
       if (v > bestV) { bestV = v; best = lag; }
     }
+    // very fast tempos are usually hi-hats/8ths: prefer half-time when it explains the music as well
+    if ((60 * fps) / best > 158 && best * 2 <= maxLag && harmScore(best * 2) >= 0.8 * harmScore(best)) best = best * 2;
     let lagF = best;
     if (best > minLag && best < maxLag) {
       const y0 = ac[best - 1], y1 = ac[best], y2 = ac[best + 1];
@@ -244,7 +255,7 @@
         const s = score[j] - tight * pen * pen;
         if (bestJ < 0 || s > bestS) { bestS = s; bestJ = j; }
       }
-      score[t] = env[t] + (bestJ >= 0 ? bestS : 0);
+      score[t] = envB[t] + (bestJ >= 0 ? bestS : 0);
       back[t] = bestJ;
     }
     let end = frames - 1, endV = -Infinity;
@@ -258,12 +269,34 @@
     while (beats[0] - pSec > -0.02) beats.unshift(Math.max(0, beats[0] - pSec));
     while (beats[beats.length - 1] + pSec < duration) beats.push(beats[beats.length - 1] + pSec);
 
-    // ---- downbeats: phase with strongest low-end (kick) energy ----
-    const lowAt = (t) => { const f = Math.round(((t * sr) - N * 0.55) / hop); let m = 0; for (let k = f - 2; k <= f + 2; k++) if (k >= 0 && k < frames) m = Math.max(m, envLow[k] + 0.3 * env[k]); return m; };
-    let phase = 0, phaseV = -1;
+    // ---- phase check: drums (kick + snare) should sit ON the beat, not between beats ----
+    const fr = (t) => Math.round((t * sr - N * 0.55) / hop);
+    const bandAt = (arr, t) => { const f = fr(t); let m = 0; for (let k = f - 2; k <= f + 2; k++) if (k >= 0 && k < frames && arr[k] > m) m = arr[k]; return m; };
+    // Compare kick-band and snare-band asymmetry separately and trust the more decisive band:
+    // syncopated kicks (phonk, breaks) defer to the backbeat; four-on-the-floor kicks win over off-beat snares.
+    let onL = 1e-6, offL = 1e-6, onM = 1e-6, offM = 1e-6;
+    for (const t of beats) {
+      onL += bandAt(envLow, t); offL += bandAt(envLow, t + pSec / 2);
+      onM += bandAt(envMid, t) + 0.5 * bandAt(envHigh, t); offM += bandAt(envMid, t + pSec / 2) + 0.5 * bandAt(envHigh, t + pSec / 2);
+    }
+    const rL = Math.log(onL / offL), rM = Math.log(onM / offM);
+    const vote = Math.abs(rL) > Math.abs(rM) ? rL : rM;
+    const onB = Math.exp(Math.max(0, vote)), offB = Math.exp(Math.max(0, -vote));
+    if (offB > onB * 1.1) {
+      beats = beats.map((t) => t + pSec / 2).filter((t) => t < duration);
+      if (beats[0] - pSec > -0.02) beats.unshift(Math.max(0, beats[0] - pSec));
+    }
+
+    // ---- downbeats: kick on 1 (and 3), snare/clap on 2 and 4 ----
+    let phase = 0, phaseV = -Infinity;
     for (let ph = 0; ph < 4; ph++) {
       let s = 0;
-      for (let i = ph; i < beats.length; i += 4) s += lowAt(beats[i]);
+      for (let i = ph; i + 3 < beats.length; i += 4) {
+        s += 1.0 * bandAt(envLow, beats[i]) + 0.4 * bandAt(envLow, beats[i + 2])
+          + 0.6 * (bandAt(envMid, beats[i + 1]) + bandAt(envMid, beats[i + 3]))
+          - 0.6 * (bandAt(envMid, beats[i]) + bandAt(envMid, beats[i + 2]))
+          + 0.3 * (bandAt(env, beats[i]));
+      }
       if (s > phaseV) { phaseV = s; phase = ph; }
     }
     const downbeats = beats.filter((_, i) => i % 4 === phase);

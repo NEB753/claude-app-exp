@@ -88,7 +88,7 @@
     $$('.tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
     $$('.panel').forEach((p) => p.classList.toggle('active', p.id === 'tab-' + name));
     if (name !== 'beat' && renderer.playing) renderer.stop(), updatePlayBtn();
-    if (name === 'photo') Lab.refreshSources();
+    if (name === 'photo') Lab.activate();
     if (name === 'beat') { BeatUI.refreshAudioList(); BeatUI.rebuild(); }
     document.body.classList.remove('lib-open');
   }
@@ -134,7 +134,7 @@
         h('span', { class: 'name', text: it.name }),
         isVis ? h('span', { class: 'check', text: it.selected ? '✓' : '' }) : null,
         h('div', { class: 'acts' }, [
-          isVis ? h('button', { title: 'Open in Photo Lab', text: '◐', onclick: (e) => { e.stopPropagation(); Lab.state.src = it.id; switchTab('photo'); Lab.load(); } }) : null,
+          isVis ? h('button', { title: 'Open in Photo Lab', text: '◐', onclick: (e) => { e.stopPropagation(); Lab.state.src = it.id; switchTab('photo'); } }) : null,
           it.kind === 'audio' ? h('button', { title: 'Use as Beat Sync music', text: '♫', onclick: (e) => { e.stopPropagation(); switchTab('beat'); BeatUI.useAudio(it.id); } }) : null,
           h('button', { title: 'Download', text: '⬇', onclick: (e) => { e.stopPropagation(); BS.download(it.blob, it.name); } }),
           h('button', { title: 'Remove', text: '✕', onclick: (e) => { e.stopPropagation(); Lib.remove(it.id); } }),
@@ -258,7 +258,7 @@
     $('#toLabBtn').addEventListener('click', async () => {
       if (!cur()) return BS.toast('Generate something first');
       const it = await Lib.addCanvas(cur().canvas, cur().name);
-      Lab.state.src = it.id; switchTab('photo'); Lab.load();
+      Lab.state.src = it.id; switchTab('photo');
     });
 
     // ---- video generator ----
@@ -451,6 +451,7 @@
       }
       base = BS.makeCanvas(sw, sh);
       base.getContext('2d').drawImage(src, 0, 0, sw, sh);
+      loadedSrc = it.id;
       schedule();
     }
     function schedule() { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; render(); }); }
@@ -505,9 +506,11 @@
     cmp.addEventListener('pointerdown', () => setCmp(true));
     ['pointerup', 'pointerleave', 'pointercancel'].forEach((e) => cmp.addEventListener(e, () => compare && setCmp(false)));
 
-    function onLibraryChange() { if (activeTab === 'photo') { const had = L.src; refreshSources(); if (had !== L.src || !base) load(); } }
+    let loadedSrc = null;
+    function activate() { refreshSources(); if (!base || loadedSrc !== L.src) load(); }
+    function onLibraryChange() { if (activeTab === 'photo') activate(); }
     render();
-    return { state: L, refreshSources, load, onLibraryChange };
+    return { state: L, refreshSources, load, activate, onLibraryChange };
   })();
 
   // =====================================================================
@@ -522,7 +525,7 @@
       grade: 'punchy', grain: 0.15, vhs: 0, vignette: 0.3, letterbox: 0,
       captionText: '', captionTrig: 'beat', captionColor: '#ffffff', title: '', fade: true,
       aspect: '16:9', res: 720, fps: 30, format: 'mp4', rangeStart: 0, rangeEnd: 0, syncMs: 0, bpmOverride: 0, sensitivity: 0.5,
-      audioId: '', silentLen: 30,
+      audioId: '', silentLen: 30, halfShift: false, barShift: 0,
     };
     const FXS = {};
     Object.entries(Beat.EFFECTS).forEach(([k, d]) => (FXS[k] = { on: false, trig: d.trig, amt: d.amt }));
@@ -588,6 +591,17 @@
         an.beats = g.beats; an.downbeats = g.downbeats; an.bpm = bpm; an.period = 60 / bpm;
         if (!audio) { an.onsets = { all: g.beats, low: g.downbeats.concat(g.beats.filter((_, i) => i % 4 === 2)).sort((a, b) => a - b), mid: g.beats.filter((_, i) => i % 2 === 1), high: g.beats.map((t) => t + an.period / 2) }; }
       }
+      if (S.halfShift && an.beats.length) {
+        const hp = an.period / 2;
+        an.beats = an.beats.map((t) => t + hp).filter((t) => t < an.duration);
+        an.downbeats = an.downbeats.map((t) => t + hp).filter((t) => t < an.duration);
+      }
+      if (S.barShift) {
+        const d0 = an.downbeats[0] != null ? an.downbeats[0] : 0;
+        const i0 = an.beats.findIndex((t) => Math.abs(t - d0) < 1e-3);
+        const ph = (((i0 < 0 ? 0 : i0) + S.barShift) % 4 + 4) % 4;
+        an.downbeats = an.beats.filter((_, i) => i % 4 === ph);
+      }
       if (audio) audio.an = an; else audio = null;
       state.an = an;
       box.innerHTML = audio
@@ -622,6 +636,10 @@
     ui.bpm = text(st2, S, 'bpmOverride', 'Force BPM (0 = auto)', '0', reanalyzeSoon, 'number');
     ui.sync = slider(st2, S, 'syncMs', 'Sync nudge', -200, 200, 5, () => { renderer.syncOffset = S.syncMs / 1000; }, (v) => v + 'ms');
     ui.sens = slider(so, S, 'sensitivity', 'Hit detection sensitivity', 0, 1, 0.05, reanalyzeSoon);
+    const st3 = two(so);
+    ui.halfShift = check(st3, S, 'halfShift', 'Shift grid ½ beat', reanalyzeSoon);
+    ui.barShift = select(st3, S, 'barShift', null, [[0, 'Bar starts: auto'], [1, 'Bar +1 beat'], [2, 'Bar +2 beats'], [3, 'Bar +3 beats']], reanalyzeSoon);
+    so.appendChild(h('div', { class: 'hint', text: 'If cuts feel off-beat, toggle ½-beat shift; if bar cuts land on the wrong beat, move the bar start.' }));
 
     // ---- presets ----
     const pr = $('#bsPresets');
