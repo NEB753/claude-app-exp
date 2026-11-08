@@ -176,13 +176,31 @@
     const m = Math.floor(s / 60), r = s - m * 60;
     return m + ':' + (r < 10 ? '0' : '') + r.toFixed(1);
   };
-  BS.download = function (blob, name) {
+  // Inside a hosted claude.ai page, downloads go through the viewer's save prompt;
+  // everywhere else a normal <a download> link is used.
+  BS.hosted = !!(window.claude && typeof window.claude.use === 'function');
+  BS.download = async function (blob, name) {
+    if (BS.hosted) {
+      let dl = null;
+      try { dl = await window.claude.use('downloads'); } catch (e) { dl = null; }
+      if (!dl) { BS.toast('Downloads are not available in this view', 'error'); return false; }
+      try { await dl.save({ filename: name, data: blob }); return true; }
+      catch (e) {
+        const code = e && e.code;
+        if (code === 'declined') return false;
+        if (code === 'rejected_extension' || code === 'extension_not_enabled') BS.toast('This file type (' + name.split('.').pop() + ') cannot be saved from here', 'error');
+        else if (code === 'rate_limited') BS.toast('A save prompt is already open — finish it first', 'error');
+        else BS.toast('Save failed: ' + ((e && e.message) || code || e), 'error');
+        return false;
+      }
+    }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = name;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+    return true;
   };
   let toastTimer = null;
   BS.toast = function (msg, kind) {

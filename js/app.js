@@ -163,7 +163,8 @@
     const promptEl = $('#genPrompt');
 
     const o = $('#genOpts');
-    select(o, G, 'engine', 'Engine', [['procedural', 'Procedural art (offline, instant)'], ['online', 'AI images — Pollinations (free, online)']], updateHint);
+    // The hosted page can't reach other sites, so the online AI engine is only offered when run locally.
+    select(o, G, 'engine', 'Engine', [['procedural', 'Procedural art (offline, instant)']].concat(BS.hosted ? [] : [['online', 'AI images — Pollinations (free, online)']]), updateHint);
     const t1 = two(o);
     select(t1, G, 'style', 'Style', [['auto', 'Auto (from prompt)']].concat(Gen.STYLES.map((s) => [s, Gen.STYLE_NAMES[s]])), updateHint);
     select(t1, G, 'palette', 'Palette', [['auto', 'Auto (from prompt)']].concat(Object.keys(Gen.PALETTES).map((p) => [p, p[0].toUpperCase() + p.slice(1)])), updateHint);
