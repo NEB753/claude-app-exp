@@ -103,6 +103,22 @@ let ASSETS_HD=null;const scatterMatHD=new THREE.MeshStandardMaterial({vertexColo
 const hdTier=()=>S.quality==='pro'||S.quality==='ultra';
 
 const SCAT={};let scatterCounts={};
+/* level of detail: on Pro/Ultra the master meshes (all instances, light models) are split every time the camera moves
+   far enough: instances near the camera draw with the detailed models and cast shadows; the rest use the light models
+   without shadows. Zoomed out, almost everything is light, which keeps big forests smooth. */
+const NEAR={},FAR={};const lodPos=new THREE.Vector3(1e9,1e9,1e9);let lodT=0;
+function ensureLOD(){const hd=hdTier();if(hd&&!ASSETS_HD)ASSETS_HD=assetGeosHD();
+  for(const t of TREE_KEYS){const base=SCAT[t];if(!base)continue;base.visible=!hd;
+    if(!hd){for(const P of [NEAR,FAR])if(P[t]){scene.remove(P[t]);P[t].dispose();delete P[t]}continue}
+    const max=base.userData.max,nmax=Math.min(max,t==='grass'?5000:t==='bush'||t==='boulder'?2500:1800);
+    if(!FAR[t]||FAR[t].userData.max!==max){if(FAR[t]){scene.remove(FAR[t]);FAR[t].dispose()}const m=new THREE.InstancedMesh(ASSETS[t],scatterMat,max);m.userData.max=max;m.count=0;m.frustumCulled=false;m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);m.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(max*3),3);m.castShadow=false;m.receiveShadow=true;scene.add(m);FAR[t]=m}
+    if(!NEAR[t]||NEAR[t].userData.max!==nmax){if(NEAR[t]){scene.remove(NEAR[t]);NEAR[t].dispose()}const m=new THREE.InstancedMesh(ASSETS_HD[t],scatterMatHD,nmax);m.userData.max=nmax;m.count=0;m.frustumCulled=false;m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);m.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(nmax*3),3);m.castShadow=t!=='grass'&&t!=='log'&&t!=='stump';m.receiveShadow=true;scene.add(m);NEAR[t]=m}}}
+function partitionLOD(force){if(!hdTier()||!SCAT.conifer)return;const cp=camera.position,R=Math.max(240,S.shape.world*.1),R2=R*R;
+  for(const t of TREE_KEYS){const b=SCAT[t],nr=NEAR[t],fr=FAR[t];if(!b||!nr||!fr)continue;const A=b.instanceMatrix.array,C=b.instanceColor.array,NA=nr.instanceMatrix.array,NC=nr.instanceColor.array,FA=fr.instanceMatrix.array,FC=fr.instanceColor.array;let ni=0,fi=0;const nm=nr.userData.max;
+    for(let i=0;i<b.count;i++){const o=i*16,dx=A[o+12]-cp.x,dy=A[o+13]-cp.y,dz=A[o+14]-cp.z;if(dx*dx+dy*dy+dz*dz<R2&&ni<nm){NA.set(A.subarray(o,o+16),ni*16);NC.set(C.subarray(i*3,i*3+3),ni*3);ni++}else{FA.set(A.subarray(o,o+16),fi*16);FC.set(C.subarray(i*3,i*3+3),fi*3);fi++}}
+    nr.count=ni;fr.count=fi;nr.instanceMatrix.needsUpdate=fr.instanceMatrix.needsUpdate=true;nr.instanceColor.needsUpdate=fr.instanceColor.needsUpdate=true}
+  lodPos.copy(cp);dirty=true;shadowDirty()}
+function lodTick(now){if(!hdTier()||now-lodT<160)return;const R=Math.max(240,S.shape.world*.1);if(camera.position.distanceTo(lodPos)>R*.22){lodT=now;partitionLOD()}}
 const TREE_KEYS=['conifer','pine','broadleaf','birch','bush','grass','boulder','log','stump'];
 const STRUCT_KEYS=['cabin','house','tower','bridge','fence','well','lamp','crate','haybale'];
 const MAT_TINT={wood:[1,1,1],brick:[1.3,.66,.55],stone:[1,1,1.04],metal:[.82,.9,1.05],clay:[1.22,.86,.66]};
@@ -111,10 +127,9 @@ function ensureScatterMeshes(){
   const q=QUALITY[S.quality].scatter;
   for(const t of TREE_KEYS){
     const max=Math.round(SCATTER_TYPES[parentOf(t)].max*q*(t==='grass'||t==='bush'||t==='boulder'?1:.6));
-    const hd=hdTier();if(hd&&!ASSETS_HD)ASSETS_HD=assetGeosHD();
-    if(SCAT[t]&&SCAT[t].userData.max===max&&SCAT[t].userData.hd===hd)continue;
+    if(SCAT[t]&&SCAT[t].userData.max===max)continue;
     if(SCAT[t]){scene.remove(SCAT[t]);SCAT[t].dispose()}
-    const m=new THREE.InstancedMesh(hd?ASSETS_HD[t]:ASSETS[t],hd?scatterMatHD:scatterMat,max);m.userData.max=max;m.userData.hd=hd;m.count=0;m.frustumCulled=false;
+    const m=new THREE.InstancedMesh(ASSETS[t],scatterMat,max);m.userData.max=max;m.count=0;m.frustumCulled=false;
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);m.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(max*3),3);
     m.castShadow=t!=='grass'&&t!=='log'&&t!=='stump';m.receiveShadow=true;scene.add(m);SCAT[t]=m;
   }
@@ -165,6 +180,7 @@ function buildScatter(){
     scatterCounts[t]=placed;
   });
   for(const k of TREE_KEYS){const mesh=SCAT[k];mesh.count=used[k];mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true}
+  ensureLOD();partitionLOD(true);
   placeStructures(on);dirty=true;shadowDirty();
   if(typeof onScatterBuilt==='function')onScatterBuilt();
 }
@@ -172,7 +188,7 @@ function buildScatter(){
 function scatterReseat(){if(!H||!SCAT.conifer)return;const W=S.shape.world,vex=S.view.vex,sea=seaLevel();
   for(const k of TREE_KEYS){const m=SCAT[k],off=m.userData.off;if(!m.count||!off)continue;const a=m.instanceMatrix.array;
     for(let i=0;i<m.count;i++){const o=i*16,x=a[o+12],z=a[o+14],gx=(x/W+.5)*(N-1),gy=(z/W+.5)*(N-1),h=hAt(gx,gy);a[o+13]=h<sea+.4&&k!=='grass'?-1e6:h*vex+off[i]}m.instanceMatrix.needsUpdate=true}
-  placeStructures(S.scatter.on);shadowDirty();dirty=true}
+  placeStructures(S.scatter.on);partitionLOD(true);shadowDirty();dirty=true}
 function autoStructs(count){
   const rng=mulberry32((S.seed*31+5+(S.seed2||0)*977)>>>0),W=S.shape.world,sea=seaLevel(),cands=[];
   for(let a=0;a<900;a++){const u=.06+rng()*.88,v=.06+rng()*.88,gx=u*(N-1),gy=v*(N-1),h=hAt(gx,gy);if(h<sea+2)continue;const sl=slopeDeg(gx,gy);if(sl>9)continue;cands.push({u,v,sl:sl+rng()*4})}
@@ -202,6 +218,7 @@ function scatterExportParts(limit){
     for(let i=0;i<n;i++){mesh.getMatrixAt(i,_m);_m.decompose(p,q,sc);inst.push({t:[+p.x.toFixed(3),+p.y.toFixed(3),+p.z.toFixed(3)],r:[+q.x.toFixed(5),+q.y.toFixed(5),+q.z.toFixed(5),+q.w.toFixed(5)],s:[+sc.x.toFixed(3),+sc.y.toFixed(3),+sc.z.toFixed(3)]})}
     out.push({name:t[0].toUpperCase()+t.slice(1),pos:g.attributes.position.array.slice(),nor:g.attributes.normal.array.slice(),col,idx,instances:inst,count:n});
   }
+  if(typeof townExportParts==='function')out.push(...townExportParts());
   return out;
 }
 function placeBridge(st,counts,vex,W,cfg){

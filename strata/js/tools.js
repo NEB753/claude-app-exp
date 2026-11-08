@@ -32,23 +32,36 @@ function stampProfile(type,d,ax,ay,rn){
     case'basin':return -(1-smooth(.2,1,d))*.6;
   }return 0;
 }
+/* Terrain-aware brushes. With Realism above 0, the brush does not push clay: Raise lifts the crust along fractal
+   ridges and spurs (world-anchored, so neighbouring dabs continue the same ridge), Lower cuts branching valleys,
+   Roughen adds rock where slopes are steep and keeps meadows smooth. When the stroke ends, the touched area is
+   weathered: slopes settle to their angle of repose and rain carves gullies, so new land joins the old naturally. */
+let TN=null,TNs=-1;
+function terrainNoise(){if(TNs!==S.seed){TN=makeNoise(S.seed+4242);TNs=S.seed}return TN}
+function bbAdd(i0,j0,i1,j1){if(!stroke)return;const b=stroke.bb;if(!b)stroke.bb=[i0,j0,i1,j1];else{b[0]=Math.min(b[0],i0);b[1]=Math.min(b[1],j0);b[2]=Math.max(b[2],i1);b[3]=Math.max(b[3],j1)}}
+function weatherRegion(bb,nat){if(!bb||nat<=0)return;const pad=6,i0=Math.max(1,bb[0]-pad),j0=Math.max(1,bb[1]-pad),i1=Math.min(N-2,bb[2]+pad),j1=Math.min(N-2,bb[3]+pad);
+  const cell=S.shape.world/(N-1),tal=Math.tan((40-8*nat)*Math.PI/180)*cell,nb=[-1,1,-N,N];
+  for(let p=0;p<Math.round(2+5*nat);p++)for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const k=j*N+i;if(MK[k]>.5)continue;let mx=0,lo=-1;for(let q=0;q<4;q++){const d=H[k]-H[k+nb[q]];if(d>mx){mx=d;lo=k+nb[q]}}if(mx>tal){const mv=(mx-tal)*.25;H[k]-=mv;H[lo]+=mv}}
+  const cx=(i0+i1)/2,cy=(j0+j1)/2,r=Math.max(i1-i0,j1-j0)/2,drops=Math.round(Math.min(9000,(i1-i0)*(j1-j0)*.35*nat));
+  if(drops>20)erodeDroplets(H,N,drops,.8,mulberry32((S.seed*7+drops)|0),{x:cx,y:cy,r},S.shape.maxH);
+  for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++)if(H[j*N+i]<0)H[j*N+i]=0;markRegion(i0-1,j0-1,i1+1,j1+1)}
 function brushAt(cx,cy,amt,p){
   const W=S.shape.world,g=(N-1)/W,rad=Math.max(1,S.brush.size*g),fall=S.brush.falloff,tool=S.tool,st=S.brush.strength*amt,rate=S.shape.maxH*.012;
   const i0=Math.max(0,Math.floor(cx-rad)),i1=Math.min(N-1,Math.ceil(cx+rad)),j0=Math.max(0,Math.floor(cy-rad)),j1=Math.min(N-1,Math.ceil(cy+rad));
   if(i0>i1||j0>j1)return;
   if(tool==='erode'){erodeDroplets(H,N,Math.round(40*st+6),1.2,stroke.rng,{x:cx,y:cy,r:rad},S.shape.maxH);markRegion(i0-2,j0-2,i1+2,j1+2);return}
   let src=null,sw=0;if(tool==='smooth'||tool==='pinch'||tool==='smudge'){sw=i1-i0+5;src=new Float32Array(sw*(j1-j0+5));for(let j=j0-2;j<=j1+2;j++)for(let i=i0-2;i<=i1+2;i++)src[(j-j0+2)*sw+(i-i0+2)]=H[clamp(j,0,N-1)*N+clamp(i,0,N-1)]}
-  const rn=stroke&&stroke.noise,pc=tool==='paint'&&PAINTS[S.paint].c,step=S.shape.maxH/10;
+  const rn=stroke&&stroke.noise,pc=tool==='paint'&&PAINTS[S.paint].c,step=S.shape.maxH/10,nat=S.brush.nat??.75,tn=terrainNoise(),cell=W/(N-1),lam=Math.max(cell*6,S.brush.size*.55);bbAdd(i0,j0,i1,j1);
   for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){
     const d=Math.hypot(i-cx,j-cy)/rad;if(d>=1)continue;
     const sh=S.brush.shape;let w=sh==='sharp'?Math.pow(1-d,2.4):sh==='plateau'?1-smooth(.72,1,d):fall<=.01?1:1-smooth(1-fall,1,d);if(sh==='spray')w*=hash2(i,j,(stroke&&stroke.sprayS)||1)>.6?1:.12;
     const k=j*N+i,s=w*st*(tool==='mask'||tool==='paint'||tool==='plant'?1:1-MK[k]);if(s<=0)continue;
     switch(tool){
-      case'raise':H[k]+=s*rate;break;
-      case'lower':H[k]=Math.max(0,H[k]-s*rate);break;
+      case'raise':{if(nat>0){const wx=i*cell/lam,wy=j*cell/lam,rg=ridged(tn,wx,wy,4,.5),up=.3+1.05*rg*rg;H[k]+=s*rate*lerp(1,up,nat)}else H[k]+=s*rate;break}
+      case'lower':{if(nat>0){const wx=i*cell/lam,wy=j*cell/lam,v=1-Math.abs(fbm(tn,wx*.8+31,wy*.8,4,.5)),vm=.35+1.1*Math.pow(v,3);H[k]=Math.max(0,H[k]-s*rate*lerp(1,vm,nat))}else H[k]=Math.max(0,H[k]-s*rate);break}
       case'smooth':{let sum=0;for(let dj=-2;dj<=2;dj++)for(let di=-2;di<=2;di++)sum+=src[(j-j0+2+dj)*sw+(i-i0+2+di)];H[k]=lerp(H[k],sum/25,clamp(s*.6,0,1));break}
       case'flatten':H[k]=lerp(H[k],stroke.flatH,clamp(s*.35,0,1));break;
-      case'roughen':H[k]=Math.max(0,H[k]+rn(i*.35,j*.35)*s*rate*1.2);break;
+      case'roughen':{if(nat>0){const sl=Math.min(1,Math.hypot(H[k+(i<N-1?1:0)]-H[k-(i>0?1:0)],H[k+(j<N-1?N:0)]-H[k-(j>0?N:0)])/(2*cell)),wx=i*cell/(lam*.45),wy=j*cell/(lam*.45),r=(ridged(tn,wx+11,wy,4,.55)-.45)*1.6+fbm(tn,wx*2.3,wy*2.3,3,.5)*.5;H[k]=Math.max(0,H[k]+r*s*rate*1.2*lerp(1,.25+1.4*sl,nat))}else H[k]=Math.max(0,H[k]+rn(i*.35,j*.35)*s*rate*1.2);break}
       case'terrace':{const t=H[k]/step,k0=Math.floor(t),f=t-k0;H[k]=lerp(H[k],(k0+smooth(.4,.6,f))*step,clamp(s*.3,0,1));break}
       case'paint':{const k3=k*3,t=clamp(s*.5,0,1);if(pc){if(PW[k]<.02){PC[k3]=pc[0];PC[k3+1]=pc[1];PC[k3+2]=pc[2]}else{PC[k3]=lerp(PC[k3],pc[0],t);PC[k3+1]=lerp(PC[k3+1],pc[1],t);PC[k3+2]=lerp(PC[k3+2],pc[2],t)}PW[k]=Math.min(1,PW[k]+s*.4)}else PW[k]=Math.max(0,PW[k]-s*.4);break}
       case'pinch':{let sum=0;for(let dj=-2;dj<=2;dj++)for(let di=-2;di<=2;di++)sum+=src[(j-j0+2+dj)*sw+(i-i0+2+di)];H[k]=Math.max(0,H[k]+(H[k]-sum/25)*clamp(s*.9,0,1));break}
@@ -115,10 +128,10 @@ async function runErosion(kind,amount){
 
 /* ---------------- undo ---------------- */
 const undoS=[],redoS=[];
-const snap=()=>({N,H:H.slice(),PC:PC.slice(),PW:PW.slice(),SM:SM.slice(),WM:WM.slice(),MK:MK.slice(),DF:DF.slice(),maxH:S.shape.maxH});
+const snap=()=>({town:JSON.stringify(S.town||{b:[],roads:[],walls:[]}),N,H:H.slice(),PC:PC.slice(),PW:PW.slice(),SM:SM.slice(),WM:WM.slice(),MK:MK.slice(),DF:DF.slice(),maxH:S.shape.maxH});
 const undoLimit=()=>clamp(Math.floor(QUALITY[S.quality].undoMB*1048576/(N*N*48)),3,16);
 function pushUndo(){undoS.push(snap());while(undoS.length>undoLimit())undoS.shift();redoS.length=0;syncUndo()}
-function restore(s){const resChanged=s.N!==N;N=s.N;H=s.H;PC=s.PC;PW=s.PW;SM=s.SM;WM=s.WM;MK=s.MK||new Float32Array(N*N);DF=s.DF||new Float32Array(N*N);S.shape.maxH=prevMaxH=s.maxH;if(resChanged){genMoist();buildGeometry()}if(typeof fluidSync==='function')fluidSync();updateAll();if(typeof renderSheet==='function')renderSheet();saveSoon()}
+function restore(s){if(s.town){S.town=JSON.parse(s.town);TW.dirtyWalls=true;TW.sel=-1}const resChanged=s.N!==N;N=s.N;H=s.H;PC=s.PC;PW=s.PW;SM=s.SM;WM=s.WM;MK=s.MK||new Float32Array(N*N);DF=s.DF||new Float32Array(N*N);S.shape.maxH=prevMaxH=s.maxH;if(resChanged){genMoist();buildGeometry()}if(typeof fluidSync==='function')fluidSync();updateAll();if(typeof renderSheet==='function')renderSheet();saveSoon()}
 function undo(){if(!undoS.length)return;redoS.push(snap());restore(undoS.pop());syncUndo();toast('Undone')}
 function redo(){if(!redoS.length)return;undoS.push(snap());restore(redoS.pop());syncUndo();toast('Redone')}
 function syncUndo(){$('#undo').disabled=!undoS.length;$('#redo').disabled=!redoS.length}

@@ -60,6 +60,8 @@ const PRESETS={
 };
 const SHAPE_RANGES={typeAmt:[0,1,.01],weather:[0,1,.01],freq:[.8,6,.05],oct:[3,8,1],gain:[.3,.65,.01],ridges:[0,1,.01],warp:[0,1,.01],peaks:[.6,3,.05],cone:[0,1,.01],crater:[0,1,.01],island:[0,1,.01],terrace:[0,1,.01],tsteps:[3,14,1],maxH:[20,1200,5],world:[400,8000,50]};
 const QUALITY={
+  minimum:{label:'Minimum',sub:'65² grid · 0.75× pixels · for very old phones',res:65,dpr:.75,shadow:0,scatter:.08,sim:49,tex:512,undoMB:16,lite:true},
+  lite:{label:'Lite',sub:'97² grid · 1× pixels · older iPhone & Android',res:97,dpr:1,shadow:0,scatter:.16,sim:65,tex:512,undoMB:24,lite:true},
   battery:{label:'Battery saver',sub:'129² grid · 1× pixels · no shadows',res:129,dpr:1,shadow:0,scatter:.3,sim:97,tex:1024,undoMB:40},
   balanced:{label:'Balanced',sub:'257² grid · 2× pixels · soft shadows',res:257,dpr:2,shadow:2048,scatter:.7,sim:129,tex:2048,undoMB:90},
   pro:{label:'Pro',sub:'513² grid · sharp shadows · dense forests',res:513,dpr:2.5,shadow:2048,scatter:1.25,sim:193,tex:2048,undoMB:160},
@@ -77,11 +79,11 @@ const SCATTER_TYPES={
 const PAINTS={grass:{n:'Grass',c:[78,106,46]},meadow:{n:'Meadow',c:[136,138,68]},sand:{n:'Sand',c:[208,188,138]},dirt:{n:'Dirt',c:[104,80,56]},gravel:{n:'Gravel',c:[150,140,124]},cobble:{n:'Cobblestone',c:[122,114,104]},clay:{n:'Clay',c:[168,104,70]},asphalt:{n:'Asphalt',c:[62,62,64]},mud:{n:'Wet mud',c:[70,58,44]},rock:{n:'Rock',c:[118,112,104]},basalt:{n:'Basalt',c:[50,47,46]},snow:{n:'Snow',c:[238,242,246]},erase:{n:'Erase',c:null}};
 const LOOKS={natural:{n:'Natural',d:'Biome colors, soft daylight'},clay:{n:'Clay',d:'Matte studio clay, reads shape only'},titanium:{n:'Titanium',d:'Brushed metal, mirror reflections'},copper:{n:'Copper',d:'Anodized copper sculpture'},heat:{n:'Elevation',d:'Height-colored map'}};
 
-function autoQuality(){const d=window.devicePixelRatio||1,c=navigator.hardwareConcurrency||4;return d>=3&&c>=4?'pro':d>=2?'balanced':'battery'}
+function autoQuality(){const d=window.devicePixelRatio||1,c=navigator.hardwareConcurrency||4,m=navigator.deviceMemory||4;if(c<=2||m<=1)return'minimum';if(c<=4&&m<=2)return'lite';return d>=3&&c>=6?'pro':d>=2?'balanced':'battery'}
 const scatterDefaults=()=>{const o={};for(const k in SCATTER_TYPES)o[k]={...SCATTER_TYPES[k].def};return o};
 const DEF=()=>({v:2,preset:'Alpine',seed:4127,source:'gen',quality:autoQuality(),
   shape:{cone:0,crater:0,weather:.5,type:'standard',typeAmt:1,...PRESETS.Alpine.shape},biome:{...PRESETS.Alpine.biome},macro:{x:.6,y:.35},
-  tool:'raise',paint:'grass',stamp:'mountain',plant:'add',brush:{size:240,strength:.5,falloff:.7,mirror:false,hold:false,shape:'soft',sym:'none',lazy:.25,cat:'shape'},maskMode:'add',
+  tool:'raise',paint:'grass',stamp:'mountain',plant:'add',brush:{size:240,strength:.5,falloff:.7,mirror:false,hold:false,shape:'soft',sym:'none',lazy:.25,cat:'shape',nat:.75},maskMode:'add',
   ero:{drops:60000,power:1,talus:34,passes:30},
   fluid:{rain:.35,flow:.7,carve:.5,evap:.25,springs:[]},
   lava:{rate:.6,cool:.45,fluid:.6,vents:[]},snow:{fall:.5,repose:36,melt:.35,line:.45,addHeight:false},wind:{dir:60,power:.6,supply:.5},
@@ -91,7 +93,7 @@ const DEF=()=>({v:2,preset:'Alpine',seed:4127,source:'gen',quality:autoQuality()
   cam:{grade:'natural',vig:.3,grain:.03,tilt:0,focus:.5,expo:1,lens:1,grid:false,hq:true,mode:'photo',move:'turntable',dur:8},
   exp:{target:'blender',fmt:'glb',detail:1,base:true,depth:40,tex:2048,scatter:true,masks:true,pbr:true,tiles:1,atlas:true},
   photo:{mode:'auto',height:.6,blur:2,invert:false,detail:.35,colors:false,palette:true,project:true,ai:true,pin:false,scatter:true,thin:true,quick:true},
-  graph:null,auto:true,tab:'create',sub:{create:'generate',sim:'water'},mode:'orbit',name:'Untitled terrain'});
+  town:{b:[],roads:[],walls:[]},graph:null,auto:true,tab:'create',sub:{create:'generate',sim:'water'},mode:'orbit',name:'Untitled terrain'});
 const VARIANTS={conifer:['conifer','pine'],broadleaf:['broadleaf','birch'],deadfall:['log','stump']};
 let S=DEF();
 let N=257,H,M,PC,PW,SM,WM,MK,DF,mNoise,stats={lo:0,hi:1,water:0};
@@ -154,6 +156,14 @@ function applyLandform(f,R,type,seed,amt){
       ring=Math.exp(-Math.pow((d-.62)/.07,2)),gap=smooth(.15,.35,Math.abs(fbm(n2,ang*1.3,1,2,.5))),isl=Math.max(0,1-d/.18)*.5;f[k]=lerp(f[k],Math.max(ring*.42*gap+(1-smooth(.4,.9,d))*.08,isl),a)}}
   return normalizeField(f);
 }
+/* ---- terrain generation in a background worker, so sliders and the viewport never freeze ---- */
+let GW=null,gwSeq=0;const gwWait={};
+function genWorker(){if(GW!==null)return GW;try{
+  const named=['mulberry32','makeNoise','fbm','ridged','hash2','worley','genField','weatherField','thermalPass','erodeDroplets','applyLandform','lfLine','normalizeField'].map(n=>self[n]||window[n]).map(f=>f.toString()).join('\n');
+  const src=`"use strict";const clamp=${clamp};const smooth=${smooth};const lerp=${lerp};const octCap=${octCap};let WF1=0,WF2=0,WID=0;${named}
+onmessage=e=>{const d=e.data;const f=genField(d.R,d.sh,d.seed);postMessage({id:d.id,f},[f.buffer])}`;
+  GW=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));GW.onmessage=e=>{const cb=gwWait[e.data.id];delete gwWait[e.data.id];cb&&cb(e.data.f)};GW.onerror=()=>{GW=false}}catch(e){GW=false}return GW}
+function genFieldAsync(R,sh,seed){const w=genWorker();if(!w)return Promise.resolve(genField(R,sh,seed));const id=++gwSeq;return new Promise(res=>{gwWait[id]=res;w.postMessage({id,R,sh:{...sh},seed})})}
 /* Natural weathering after noise: thermal passes cap slopes near the angle of repose (no needle peaks), then
    rain droplets carve gullies and lay down fans. Scales with resolution so previews match the full map. */
 function weatherField(f,R,sh,seed){
@@ -239,7 +249,7 @@ function haptic(ms,kind){
     if(IOS){if(!_hapEl){_hapEl=document.createElement('label');_hapEl.setAttribute('aria-hidden','true');_hapEl.style.cssText='position:fixed;left:-100px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';const i=document.createElement('input');i.type='checkbox';i.setAttribute('switch','');i.tabIndex=-1;_hapEl.appendChild(i);document.body.appendChild(_hapEl)}_hapEl.click()}}catch(e){}}
 function celebrate(){const c=$('#celebrate');if(!c||SET.reduceMotion)return;const cols=['var(--gold)','var(--gold-hi)','var(--accent-hi)','var(--blue)','#fff'];let h='';for(let i=0;i<22;i++){const a=Math.random()*6.283,d=70+Math.random()*90;h+=`<i style="background:${cols[i%5]};--x:${Math.cos(a)*d}px;--y:${Math.sin(a)*d-40}px;--r:${Math.random()*540}deg;animation-delay:${Math.random()*.08}s"></i>`}c.innerHTML=h;c.classList.remove('go');void c.offsetWidth;c.classList.add('go')}
 /* device settings (per browser), separate from the project */
-const SET_DEF={sound:true,volume:.6,uiSize:'compact',accent:'forest',style:'glass',layout:'sheet',labels:true,power:'balanced',uiPreset:'',adaptive:true,theme:'',units:'m',invertY:false,sens:1,leftHand:false,reduceMotion:false,apiKey:'',model:'claude-opus-5-5',haptics:true,hints:false};
+const SET_DEF={sound:true,volume:.6,uiSize:'compact',accent:'forest',style:'glass',layout:'sheet',labels:true,power:'balanced',uiPreset:'',simple:false,tourDone:false,adaptive:true,theme:'',units:'m',invertY:false,sens:1,leftHand:false,reduceMotion:false,apiKey:'',model:'claude-opus-5-5',haptics:true,hints:false};
 let SET={...SET_DEF};try{const o=JSON.parse(localStorage.getItem('strata.settings')||'{}');SET={...SET_DEF,...o};
   if(!('uiSize' in o)){SET.uiSize=o.uiLarge?'large':'compact';SET.hints=false}delete SET.uiLarge}catch(e){}
 function saveSettings(){try{localStorage.setItem('strata.settings',JSON.stringify(SET))}catch(e){}}

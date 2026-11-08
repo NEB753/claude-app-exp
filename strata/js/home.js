@@ -15,8 +15,8 @@ function unpackProject(d){const def=DEF(),s=d.S;
   S={...def,...s,shape:{...def.shape,...s.shape},biome:{...def.biome,...s.biome},brush:{...def.brush,...s.brush},ero:{...def.ero,...s.ero},fluid:{...def.fluid,...s.fluid},lava:{...def.lava,...s.lava},snow:{...def.snow,...s.snow},wind:{...def.wind,...s.wind},sim:{...def.sim,...s.sim},weather:{...def.weather,...(s.weather||{})},cam:{...def.cam,...(s.cam||{})},
     view:{...def.view,...s.view},exp:{...def.exp,...s.exp},photo:{...def.photo,...s.photo},sub:{...def.sub,...s.sub},
     scatter:{on:s.scatter?s.scatter.on!==false:true,types:Object.fromEntries(Object.entries(scatterDefaults()).map(([k,v])=>[k,{...v,...(s.scatter&&s.scatter.types&&s.scatter.types[k])}]))}};
-  if(S.biome.custom)PALETTES.photo=S.biome.custom;if(!PALETTES[S.biome.palette])S.biome.palette='temperate';
-  if(!QUALITY[S.quality])S.quality=autoQuality();if(!['create','sculpt','simulate','biome','export'].includes(S.tab))S.tab='create';
+  if(S.biome.custom)PALETTES.photo=S.biome.custom;if(!S.town||!Array.isArray(S.town.b))S.town={b:[],roads:[],walls:[]};if(typeof TW!=='undefined'){TW.dirtyWalls=true;TW.sel=-1}if(!PALETTES[S.biome.palette])S.biome.palette='temperate';
+  if(!QUALITY[S.quality])S.quality=autoQuality();if(!['create','sculpt','simulate','biome','town','export'].includes(S.tab))S.tab='create';
   N=d.N;H=d.H instanceof Float32Array?d.H:new Float32Array(d.H);for(let k=0;k<H.length;k++)if(!isFinite(H[k]))H[k]=0;/* heal the stray NaN cell older versions could save */PC=Float32Array.from(d.PC);PW=Float32Array.from(d.PW,v=>v/255);SM=Float32Array.from(d.SM,v=>v/100);WM=Float32Array.from(d.WM,v=>v/255);MK=d.MK?Float32Array.from(d.MK,v=>v/255):new Float32Array(N*N);DF=d.DF?Float32Array.from(d.DF,v=>v/255):new Float32Array(N*N)}
 async function saveProject(withThumb){if(!H)return;if(!curId)curId=newId();const now=Date.now(),meta=(await DB.get('meta',curId).catch(()=>null))||{id:curId,created:now};
   meta.name=S.name;meta.updated=now;meta.N=N;meta.preset=S.preset;if(withThumb||!meta.thumb||now-lastThumb>20000){const t=snapshot();if(t){meta.thumb=t;lastThumb=now}}
@@ -110,7 +110,7 @@ async function renderSettings(body){
   <div class="set-sec">Layout</div>
   <div class="layopt">${[['sheet','Sheet'],['float','Floating'],['minimal','Minimal']].map(([v,l])=>`<button class="press" data-lay="${v}" aria-pressed="${SET.layout===v}">${LAYOUT_SVG[v]}${l}</button>`).join('')}</div>
   <p class="hint">${{sheet:'A panel slides up from the bottom.',float:'A small window floats bottom-left; tap a tab again to hide it.',minimal:'Just an icon dock. Panels open when you tap and tuck away when you touch the land.'}[SET.layout]}</p>
-  ${stg('labels','Labels under dock icons','Off gives a slimmer icon-only dock')}
+  ${stg('labels','Labels under dock icons','Off gives a slimmer icon-only dock')}${stg('simple','Simple mode','Hides advanced options: nodes, export details, expert sliders')}<div class="btns"><button class="btn plain press" id="setTour">Show the tour</button></div>
   <div class="label" style="margin-top:12px">Quality</div>${q.map(([k,v])=>`<button class="it press" data-q="${k}" style="display:flex;width:100%;align-items:center;gap:10px;padding:11px 12px;border-radius:14px;text-align:left;${S.quality===k?'background:var(--accent-soft)':''}"><span style="flex:1"><b style="font-weight:650">${v.label}</b><small style="display:block;color:var(--ink-3);font-size:12px">${v.sub}</small></span>${S.quality===k?`<span style="color:var(--gold)">${svg('<path d="m5 12 5 5 9-10"/>',2.6)}</span>`:''}</button>`).join('')}
   <div class="label">Appearance</div>
   <div class="seg" id="setTheme"><span class="ind"></span>${[['','System'],['light','Light'],['dark','Dark']].map(([v,l])=>`<button data-theme="${v}" aria-pressed="${(SET.theme||'')===v}">${l}</button>`).join('')}</div>
@@ -145,7 +145,7 @@ async function renderSettings(body){
   const th=$('#setTheme',body);requestAnimationFrame(()=>{segIndicator(th);segIndicator($('#setUnits',body));segIndicator($('#setSize',body));segIndicator($('#setStyle',body))});
   const pick=(attr,key)=>$$(`[data-${attr}]`,body).forEach(b=>{if(b.closest('#sheet'))return;b.onclick=()=>{SET[key]=b.dataset[attr];saveSettings();applySettings();haptic(8);
     $$(`[data-${attr}]`,body).forEach(x=>x.setAttribute('aria-pressed',x===b));const sg=b.closest('.seg');if(sg)setTimeout(()=>segIndicator(sg),60);if(key==='style'||key==='power')renderSettings(body);SET.uiPreset=key==='power'?SET.uiPreset:'';saveSettings()}});
-  pick('size','uiSize');pick('accent','accent');pick('style','style');pick('power','power');
+  pick('size','uiSize');pick('accent','accent');pick('style','style');pick('power','power');{const tb=$('#setTour',body);if(tb)tb.onclick=()=>{closeSettings();startTour()}}
   $$('[data-lay]',body).forEach(b=>b.onclick=()=>{SET.layout=b.dataset.lay;SET.uiPreset='';saveSettings();applySettings();haptic(8);renderSettings(body)});
   $$('[data-uipre]',body).forEach(b=>b.onclick=()=>{const p=UI_PRESETS[b.dataset.uipre];Object.assign(SET,p.s);if(!('theme' in p.s))SET.theme='';SET.uiPreset=b.dataset.uipre;saveSettings();applySettings();sfx('chime');haptic(12);renderSettings(body)});
   requestAnimationFrame(()=>segIndicator($('#setPower',body)));
@@ -162,7 +162,7 @@ async function renderSettings(body){
 function applySettings(){
   const r=document.documentElement;if(SET.theme)r.dataset.theme=SET.theme;else delete r.dataset.theme;
   if(SET.accent&&SET.accent!=='forest')r.dataset.accent=SET.accent;else delete r.dataset.accent;if(SET.style&&SET.style!=='glass')r.dataset.style=SET.style;else delete r.dataset.style;
-  const bc=document.body.classList;bc.toggle('reduce-motion',!!SET.reduceMotion);bc.toggle('left-hand',!!SET.leftHand);bc.toggle('ui-large',SET.uiSize==='large');bc.toggle('ui-regular',SET.uiSize==='regular');bc.toggle('show-tips',!!SET.hints);
+  const bc=document.body.classList;bc.toggle('reduce-motion',!!SET.reduceMotion);bc.toggle('left-hand',!!SET.leftHand);bc.toggle('ui-large',SET.uiSize==='large');bc.toggle('ui-regular',SET.uiSize==='regular');bc.toggle('show-tips',!!SET.hints);bc.toggle('simple',!!SET.simple);
   for(const l of ['sheet','float','minimal'])bc.toggle('lay-'+l,SET.layout===l);bc.toggle('icons-only',!SET.labels||SET.layout==='minimal');
   for(const p of ['battery','balanced','max'])bc.toggle('pw-'+p,SET.power===p);
   if(typeof setDetent==='function'&&typeof sheetState!=='undefined'){if(SET.layout==='sheet'&&sheetState==='closed')setDetent(DETENT_DEFAULT[S.tab]||'peek');else if(SET.layout==='minimal'&&applySettings.lay!=='minimal'&&applySettings.lay!=null)setDetent('closed')}applySettings.lay=SET.layout;

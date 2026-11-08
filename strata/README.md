@@ -118,3 +118,39 @@ A phone-first terrain studio with no build step. It uses Three.js r128 from cdnj
 - **Desktop workspace**:
   - Inspector with a clickable minimap, height histogram with the sea line, live stats and FPS, world controls and layer toggles.
   - Full keyboard map (press `?`).
+
+**V1.6**
+- **Older devices**: new **Lite** (97² grid) and **Minimum** (65², 0.75× pixels) quality tiers. They cap at 30 fps and drop glass blur, clouds and moving water. Very low-memory devices pick them automatically.
+- **Smoother Pro/Ultra**:
+  - Terrain generation runs in a background worker, so Fine-tune no longer freezes the screen.
+  - Trees use level of detail: detailed models with shadows near the camera, light shadowless models farther out.
+  - Shadows re-render at most ~3× per second while sculpting or simulating.
+- **Terrain-aware sculpting** (Realism slider):
+  - Raise lifts ridges and spurs anchored to the world, so neighbouring dabs continue the same ridge.
+  - Lower cuts branching valleys.
+  - Roughen adds rock on steep ground and leaves meadows smooth.
+  - Each stroke ends with local weathering and rain erosion. Realism 0 brings back the old clay behaviour.
+- **Water**:
+  - The simulation is stabilised: smaller time step, more damping, mass-conserving surface diffusion. This removes the striped, half-transparent bands.
+  - Thin films are hidden.
+  - Ripples and foam follow the simulated current through a flow map.
+- **Towns** (new tab):
+  - Medieval-to-colonial catalog of about 45 buildings and props: homes, workshops, mills, churches, taverns, town halls, market halls, docks, lighthouses, watchtowers, gatehouses, keeps, castles and wooden forts. Each shows a 3D thumbnail.
+  - Wall styles: plaster, timber frame, stone, brick, planks, clapboard. Roofs: thatch, clay tile, slate, shingle. Some buildings can be upgraded (cottage → timber house → townhouse, chapel → church, watchtower → tower → keep…).
+  - Tools:
+    - Place: tap, then drag to turn. Buildings near a road face it.
+    - Road: draw with a finger. Roads are graded into the land and become bridges over water.
+    - Wall: stone walls or palisades with corner towers, and gates wherever roads cross.
+    - Select: move, rotate, resize, restyle, upgrade, duplicate.
+    - Erase.
+  - **Generate** a hamlet, village, town or city, medieval or colonial, with organic or grid streets that follow gentle ground. Optional walls, a hilltop castle, and farms with painted fields and windmills.
+  - Ask the AI to plan a town (`build_town`).
+  - Photos: AI-detected buildings and roofs seen from above become real buildings.
+  - Towns undo, save with the creation, and export to GLB as instanced meshes.
+  - Castles and gatehouses are open, so you can walk through them in first person.
+- **Help**:
+  - First-run tour with a spotlight.
+  - A **?** in every panel header explains it in plain words.
+  - Labels for icon buttons (hover or long-press).
+  - **Simple mode** hides advanced options.
+  - Calmer chrome.

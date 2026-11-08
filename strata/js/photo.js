@@ -273,7 +273,7 @@ Return only JSON:
 "scatter":{"conifer":0-1,"broadleaf":0-1,"bush":0-1,"grass":0-1,"boulder":0-1,"deadfall":0-1},
 "roads":[{"material":"dirt"|"gravel"|"cobblestone"|"stone"|"clay"|"asphalt"|"metal"|"wood","width_m":3-20,"points":[[x,y],...]}],
 "rivers":[[[x,y],...]],"bridges":[{"x1":0,"y1":0,"x2":0,"y2":0,"material":"wood"|"stone"|"metal"}],
-"buildings":[{"x":0,"y":0,"type":"house"|"cabin"|"barn"|"shed"|"church"|"tower","material":"wood"|"brick"|"stone"|"metal"|"clay"}],
+"buildings":[{"x":0,"y":0,"type":"house"|"cabin"|"barn"|"shed"|"church"|"tower"|"townhouse"|"mill"|"inn"|"castle"|"fort","material":"wood"|"brick"|"stone"|"metal"|"clay","roof":"tile"|"slate"|"thatch"|"shingle"}],
 "props":[{"x":0,"y":0,"type":"fence"|"well"|"lamp"|"crate"|"haybale"|"bench"}],
 "far_distance_km":number or null (ground photos: distance to the farthest visible ridge),"peak_relief_m":number or null (ground photos: height of the tallest visible peak above the valley floor),
 "summary":"one sentence naming what you saw, including any roads, bridges and buildings"}`;
@@ -347,11 +347,14 @@ async function buildFromPhoto(){
       for(const rd of (ai.roads||[]).slice(0,14)){const p=pts01(Array.isArray(rd)?rd:rd.points);if(p.length>=2)buildRoad(p,clamp(+(rd.width_m||8),3,24)*Math.max(1,W/3000),rd.material||'dirt')}
       J.step(6);await nextFrame();
       const st=[],bt={house:'house',cabin:'cabin',barn:'house',shed:'cabin',church:'house',tower:'tower'},pt={fence:'fence',well:'well',lamp:'lamp',crate:'crate',haybale:'haybale',bench:'crate'};
-      for(const b of (ai.buildings||[]).slice(0,24))if(b&&!isNaN(+b.x))st.push({u:clamp(+b.x,.03,.97),v:clamp(+b.y,.03,.97),type:bt[b.type]||'house',mat:b.material||'wood',rot:st.length*1.7});
+      for(const b of (ai.buildings||[]).slice(0,24))if(b&&!isNaN(+b.x))st.push({u:clamp(+b.x,.03,.97),v:clamp(+b.y,.03,.97),type:b.type||'house',mat:b.material||'wood',roof:b.roof,rot:st.length*1.7});
       for(const b of (ai.props||[]).slice(0,30))if(b&&!isNaN(+b.x))st.push({u:clamp(+b.x,.02,.98),v:clamp(+b.y,.02,.98),type:pt[b.type]||'crate',rot:Math.random()*6.28});
       for(const b of (ai.bridges||[]).slice(0,8))if(b&&!isNaN(+b.x1))st.push({type:'bridge',mat:b.material,u:(+b.x1+ +b.x2)/2,v:(+b.y1+ +b.y2)/2,u1:clamp(+b.x1,0,1),v1:clamp(+b.y1,0,1),u2:clamp(+b.x2,0,1),v2:clamp(+b.y2,0,1)});
-      S.structs=st;if(st.length){S.scatter.on=true;S.scatter.types.structure.on=true}
+      const TT={house:'timberhouse',cabin:'cottage',barn:'barn',shed:'workshop',church:'church',tower:'watchtower',castle:'castle',fort:'fort',townhouse:'townhouse',mill:'windmill',inn:'tavern'},WM={wood:'wood',brick:'brick',stone:'stone',metal:'plaster',clay:'plaster'};
+      const keep=[];for(const s of st){if(s.type==='bridge'||!TT[s.type]&&!['house','cabin','tower'].includes(s.type)){keep.push(s);continue}townAdd(TT[s.type]||'cottage',s.u,s.v,s.rot||0,{wall:WM[s.mat]||'auto',roof:ROOFS[s.roof]?s.roof:'auto'})}
+      S.structs=keep;if(keep.length){S.scatter.on=true;S.scatter.types.structure.on=true}
     }else J.step(6);
+    if(aerial&&P.buildings!==false&&!(ai&&ai.buildings&&ai.buildings.length)){const nb=roofsFromImage();if(nb)REF.status=(REF.status?REF.status+'\n':'')+nb+' roofs recognised and rebuilt as buildings.'}
     genMoist();fluidSync();updateAll();morphFrom(old);
     if(mode==='depth'){/* open where the photographer stood: near edge, eye height, looking into the scene */
       const W=S.shape.world,vex=S.view.vex,gz=hAt((N-1)/2,(N-1)*.97)*vex,eye=Math.max(gz+W*.02,(r.eye?r.eye.h*S.shape.maxH*(.3+P.height*1.4):0)*vex+gz*.5),ph=1.5,rr=W*.6;

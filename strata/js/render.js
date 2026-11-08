@@ -4,7 +4,9 @@ const canvas=$('#view');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,powerPreference:'high-performance'});
 renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.shadowMap.autoUpdate=false;renderer.setClearColor(0,0);
-const shadowDirty=()=>{renderer.shadowMap.needsUpdate=true};const RQ={full:1,cur:1,low:false,idleT:0};
+let shadowWant=false,shadowT=0;const shadowDirty=()=>{shadowWant=true};
+/* shadows re-render at most ~3×/s during strokes and sims, immediately otherwise */
+function shadowTick(now,busy){if(shadowWant&&(!busy||now-shadowT>330)){renderer.shadowMap.needsUpdate=true;shadowWant=false;shadowT=now}}const RQ={full:1,cur:1,low:false,idleT:0};
 const scene=new THREE.Scene();scene.fog=new THREE.Fog(0xcfdde2,1000,6000);
 const camera=new THREE.PerspectiveCamera(40,1,1,40000);
 const hemi=new THREE.HemisphereLight(0xdfeaf2,0x4a4032,.32);scene.add(hemi);
@@ -75,7 +77,7 @@ const TU={tG:{value:null},tD:{value:null},tR:{value:null},tS:{value:null},tN:{va
   mG:{value:new THREE.Vector3(1,1,1)},mD:{value:new THREE.Vector3(1,1,1)},mR:{value:new THREE.Vector3(1,1,1)},mS:{value:new THREE.Vector3(1,1,1)},mN:{value:new THREE.Vector3(1,1,1)},uTile:{value:new THREE.Vector4(22,26,30,38)},uTileS:{value:18},uNorS:{value:1}};
 const TEXKEY={grass:['tG','nG','mG'],dry:['tD','nD','mD'],rock:['tR','nR','mR'],snow:['tN','nN','mN'],sand:['tS','nS','mS']};
 let texQ=null,texState='none';
-function texPlan(q){return q==='battery'?{d:'1k',n:null}:q==='balanced'?{d:'1k',n:'1k'}:q==='pro'?{d:'2k',n:'2k'}:{d:'4k',n:'2k'}}
+function texPlan(q){return q==='minimum'||q==='lite'?{d:'1k',n:null}:q==='battery'?{d:'1k',n:null}:q==='balanced'?{d:'1k',n:'1k'}:q==='pro'?{d:'2k',n:'2k'}:{d:'4k',n:'2k'}}
 function loadImg(urls){return new Promise((res,rej)=>{let i=0;const next=()=>{if(i>=urls.length){rej(new Error('texture unavailable'));return}const im=new Image();im.crossOrigin='anonymous';im.decoding='async';im.onload=()=>res(im);im.onerror=()=>{i++;next()};im.src=urls[i]};next()})}
 function imgMean(im){const c=document.createElement('canvas');c.width=c.height=8;const x=c.getContext('2d');x.drawImage(im,0,0,8,8);const d=x.getImageData(0,0,8,8).data;let r=0,g=0,b=0;for(let k=0;k<64;k++){r+=toLin(d[k*4]);g+=toLin(d[k*4+1]);b+=toLin(d[k*4+2])}return new THREE.Vector3(r/64,g/64,b/64)}
 function mkTex(im,srgb){const t=new THREE.Texture(im);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.encoding=srgb?THREE.sRGBEncoding:THREE.LinearEncoding;t.anisotropy=renderer.capabilities.getMaxAnisotropy();t.generateMipmaps=true;t.minFilter=THREE.LinearMipmapLinearFilter;t.needsUpdate=true;return t}
@@ -162,11 +164,13 @@ const MATS={
 const baseMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,metalness:0,envMapIntensity:.4});
 const waterMat=new THREE.MeshStandardMaterial({vertexColors:true,transparent:true,roughness:.1,metalness:0,normalMap:waterNTex,normalScale:new THREE.Vector2(.22,.22),envMapIntensity:.85,depthWrite:false});
 /* two scrolling wave layers at real-world scale, flattened with distance so far water reads as a calm sheet */
-const WU={uWS1:{value:new THREE.Vector2(30,30)},uWS2:{value:new THREE.Vector2(75,75)},uWO1:{value:new THREE.Vector2()},uWO2:{value:new THREE.Vector2()},uWFade:{value:2500}};
+const WU={uWT:{value:0},uWS1:{value:new THREE.Vector2(30,30)},uWS2:{value:new THREE.Vector2(75,75)},uWO1:{value:new THREE.Vector2()},uWO2:{value:new THREE.Vector2()},uWFade:{value:2500}};
 waterMat.onBeforeCompile=sh=>{Object.assign(sh.uniforms,WU);
-  sh.fragmentShader='uniform vec2 uWS1;uniform vec2 uWS2;uniform vec2 uWO1;uniform vec2 uWO2;uniform float uWFade;\n'+sh.fragmentShader.replace('#include <normal_fragment_maps>',THREE.ShaderChunk.normal_fragment_maps.replace(
+  sh.vertexShader='attribute vec3 flow;varying vec3 vFlow;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvFlow=flow;');
+  sh.fragmentShader=sh.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\n{float sp=clamp(vFlow.z,0.,1.);float ph=fract(uWT*.45);vec2 fo=vFlow.xy*.06;float fm=texture2D(normalMap,vUv*uWS2*.6-fo*ph*8.).g;float fm2=texture2D(normalMap,vUv*uWS2*.6-fo*fract(ph+.5)*8.+.5).g;float foam=smoothstep(.55,.85,mix(fm,fm2,abs(1.-2.*ph)))*sp;diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.78,.84,.86),foam*.55);diffuseColor.a=max(diffuseColor.a,foam*.6*step(.01,diffuseColor.a));}');
+  sh.fragmentShader='varying vec3 vFlow;uniform float uWT;uniform vec2 uWS1;uniform vec2 uWS2;uniform vec2 uWO1;uniform vec2 uWO2;uniform float uWFade;\n'+sh.fragmentShader.replace('#include <normal_fragment_maps>',THREE.ShaderChunk.normal_fragment_maps.replace(
     'vec3 mapN = texture2D( normalMap, vUv ).xyz * 2.0 - 1.0;',
-    'vec3 n1=texture2D(normalMap,vUv*uWS1+uWO1).xyz*2.-1.;vec3 n2=texture2D(normalMap,vUv*uWS2+uWO2).xyz*2.-1.;vec3 mapN=normalize(vec3(n1.xy*.65+n2.xy*.45,n1.z*n2.z));mapN.xy*=clamp(1.-length(vViewPosition)/uWFade,.12,1.);'))};
+    'float fph=fract(uWT*.45),fw=abs(1.-2.*fph);vec2 fl=vFlow.xy*.05;vec3 n1=texture2D(normalMap,vUv*uWS1+uWO1-fl*fph*6.).xyz*2.-1.;vec3 n1b=texture2D(normalMap,vUv*uWS1+uWO1-fl*fract(fph+.5)*6.+.37).xyz*2.-1.;n1=mix(n1b,n1,fw);vec3 n2=texture2D(normalMap,vUv*uWS2+uWO2-fl*fph*9.).xyz*2.-1.;vec3 mapN=normalize(vec3(n1.xy*.65+n2.xy*.45,n1.z*n2.z));mapN.xy*=clamp(1.-length(vViewPosition)/uWFade,.12,1.);'))};
 function waterScale(){const W=S.shape.world;WU.uWS1.value.set(W/140,W/140);WU.uWS2.value.set(W/52,W/52);WU.uWFade.value=Math.max(900,W*.9)}
 let geo,terrain,baseMesh,waterMesh,waterWall;
 const wallMat=new THREE.MeshStandardMaterial({vertexColors:true,transparent:true,roughness:.1,depthWrite:false,side:THREE.DoubleSide});
@@ -207,6 +211,7 @@ function updateRegion(i0,j0,i1,j1){
   dirty=true;shadowDirty();
 }
 function updateAll(){
+  if(typeof townSync==='function'&&S.town&&(S.town.b.length||S.town.walls.length)){TW.dirtyWalls=true;townSync()}
   updateRegion(0,0,N-1,N-1);for(const a of ['position','normal','color'])geo.attributes[a].updateRange.count=-1;
   computeStats();rebuildBase();updateWater();fitSun();updateContourInterval();if(typeof scatterSoon==='function')scatterSoon();
 }
@@ -257,6 +262,7 @@ function buildWater(R){
   g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(R*R*3),3).setUsage(THREE.DynamicDrawUsage));
   g.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(R*R*3),3).setUsage(THREE.DynamicDrawUsage));
   g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(R*R*4),4).setUsage(THREE.DynamicDrawUsage));
+  g.setAttribute('flow',new THREE.BufferAttribute(new Float32Array(R*R*3),3).setUsage(THREE.DynamicDrawUsage));
   g.setAttribute('uv',new THREE.BufferAttribute(uv,2));g.setIndex(new THREE.BufferAttribute(idx,1));
   waterMesh=new THREE.Mesh(g,waterMat);waterMesh.renderOrder=2;waterMesh.frustumCulled=false;waterMesh.receiveShadow=true;scene.add(waterMesh);
 }
@@ -264,19 +270,21 @@ const WSH=[.035,.17,.17],WDP=[.004,.032,.06],WFOAM=[.62,.7,.72];/* linear-space 
 function updateWater(fast){
   const R=(typeof FL!=='undefined'&&FL.R)?FL.R:QUALITY[S.quality].sim;if(R!==WR)buildWater(R);waterScale();
   const show=S.view.water;waterMesh.visible=show;if(!show){if(waterWall)waterWall.visible=false;dirty=true;return}
-  const pos=waterMesh.geometry.attributes.position.array,col=waterMesh.geometry.attributes.color.array,nor=waterMesh.geometry.attributes.normal.array,W=S.shape.world,vex=S.view.vex,sea=seaLevel(),fd=(typeof FL!=='undefined'&&FL.d&&FL.R===R)?FL.d:null;
+  const fl=waterMesh.geometry.attributes.flow&&waterMesh.geometry.attributes.flow.array,pos=waterMesh.geometry.attributes.position.array,col=waterMesh.geometry.attributes.color.array,nor=waterMesh.geometry.attributes.normal.array,W=S.shape.world,vex=S.view.vex,sea=seaLevel(),fd=(typeof FL!=='undefined'&&FL.d&&FL.R===R)?FL.d:null;
+  const fds=fd?blurField(fd.slice(),R,1):null;/* display-smoothed depth */
   let any=false;
   for(let j=0;j<R;j++)for(let i=0;i<R;i++){
     const k=j*R+i,gx=i/(R-1)*(N-1),gy=j/(R-1)*(N-1),tb=hAt(gx,gy);
-    let depth=Math.max(0,sea-tb);if(fd)depth=Math.max(depth,fd[k]);
-    const wet=depth>.03;if(wet)any=true;
+    const seaD=Math.max(0,sea-tb),simD=fds?fds[k]:0;let depth=Math.max(seaD,simD);
+    const wet=seaD>.03||simD>.18;if(wet)any=true;
     pos[k*3]=(i/(R-1)-.5)*W;pos[k*3+1]=(wet?tb+depth:tb-2)*vex;pos[k*3+2]=(j/(R-1)-.5)*W;
     nor[k*3]=0;nor[k*3+1]=1;nor[k*3+2]=0;
     const t=smooth(0,22,depth),foam=(1-smooth(.03,.35,depth))*.3;
     col[k*4]=lerp(lerp(WSH[0],WDP[0],t),WFOAM[0],foam*.6);col[k*4+1]=lerp(lerp(WSH[1],WDP[1],t),WFOAM[1],foam*.6);col[k*4+2]=lerp(lerp(WSH[2],WDP[2],t),WFOAM[2],foam*.6);
-    col[k*4+3]=wet?clamp(.42+smooth(.03,4,depth)*.5+foam*.1,0,.94):0;
+    col[k*4+3]=wet?clamp(.42+smooth(.03,4,depth)*.5+foam*.1,0,.94)*(seaD>.03?1:smooth(.18,.9,simD)):0;
+    if(fl){const fu=fd&&FL.u?FL.u[k]:0,fv=fd&&FL.v?FL.v[k]:0,spd=Math.hypot(fu,fv);fl[k*3]=fu;fl[k*3+1]=fv;fl[k*3+2]=clamp((spd-.4)/2.5,0,1)}
   }
-  const gA=waterMesh.geometry.attributes;gA.position.needsUpdate=gA.color.needsUpdate=gA.normal.needsUpdate=true;
+  const gA=waterMesh.geometry.attributes;gA.position.needsUpdate=gA.color.needsUpdate=gA.normal.needsUpdate=true;if(gA.flow)gA.flow.needsUpdate=true;
   // soft normals from surface so rivers catch light
   const yw=q=>col[q*4+3]>0?pos[q*3+1]:pos[k0*3+1];let k0=0;/* dry neighbours count as level water, so shorelines don't tilt into glare */
   for(let j=1;j<R-1;j++)for(let i=1;i<R-1;i++){const k=j*R+i;if(col[k*4+3]===0)continue;k0=k;const dx=yw(k-1)-yw(k+1),dz=yw(k-R)-yw(k+R),c=2*W/(R-1),l=1/Math.hypot(dx,c,dz);nor[k*3]=dx*l;nor[k*3+1]=c*l;nor[k*3+2]=dz*l}
@@ -313,7 +321,7 @@ function applyTheme(){
   ring.material.color.set(cs.getPropertyValue('--gold').trim()||'#d9ae4a');CU.uLine.value.set(dark?0xe8eef2:0x1b2228);buildEnv(dark);
   const tc=document.querySelector('meta[name=theme-color]');if(tc)tc.content=sky;dirty=true;
 }
-function applyQuality(){loadTerrainTextures();const Q=QUALITY[S.quality],hq=typeof CAM!=='undefined'&&CAM.on&&S.cam.hq;RQ.full=Math.min(window.devicePixelRatio||1,Q.dpr*(hq?1.3:1));RQ.cur=RQ.full;RQ.low=false;renderer.setPixelRatio(RQ.full);resize();fitSun()}
+function applyQuality(){loadTerrainTextures();const LQ=QUALITY[S.quality]||{};document.body.classList.toggle('q-lite',!!LQ.lite);CU.uDetail.value=LQ.lite?0:1;const Q=QUALITY[S.quality],hq=typeof CAM!=='undefined'&&CAM.on&&S.cam.hq;RQ.full=Math.min(window.devicePixelRatio||1,Q.dpr*(hq?1.3:1));RQ.cur=RQ.full;RQ.low=false;renderer.setPixelRatio(RQ.full);resize();fitSun()}
 /* adaptive resolution: render a little softer while you drag, snap back to full sharpness 300 ms after you stop */
 function adaptDPR(now,active){if(!SET.adaptive||RQ.full<=1.3||(typeof CAM!=='undefined'&&CAM.rec))return;
   if(active){RQ.idleT=now;if(!RQ.low){RQ.low=true;const hi=S.quality==='pro'||S.quality==='ultra';RQ.cur=hi?Math.max(1.5,RQ.full*.8):Math.max(1,Math.min(RQ.full*.62,1.6));renderer.setPixelRatio(RQ.cur);renderer.setSize(innerWidth,innerHeight,false)}}

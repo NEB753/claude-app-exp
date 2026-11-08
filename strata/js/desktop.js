@@ -9,7 +9,7 @@ document.body.insertAdjacentHTML('beforeend',`<aside id="insp" class="glass" ari
   <div class="ib" id="iBody"></div></aside>
   <button id="inspShow" class="glass press" hidden aria-label="Show inspector"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m15 6-6 6 6 6"/></svg></button>
   <div id="keys" class="glass" hidden role="dialog" aria-label="Keyboard shortcuts"></div>`);
-const KEYMAP=[['1–5','Create · Sculpt · Simulate · Biome · Export'],['N','New world'],['V','Variation (new seed)'],['S','Sculpt brush on / off'],['[  ]','Brush smaller / larger'],['Shift + [  ]','Strength down / up'],
+const KEYMAP=[['1–6','Create · Sculpt · Simulate · Biome · Towns · Export'],['N','New world'],['V','Variation (new seed)'],['S','Sculpt brush on / off'],['[  ]','Brush smaller / larger'],['Shift + [  ]','Strength down / up'],
   ['Ctrl/⌘ Z','Undo · Shift for redo'],['F','Frame the terrain'],['C','Camera & render mode'],['W','Walk in first person'],['H','Hide all panels'],['I','Inspector'],[',','Settings'],['P','Pick a photo'],['Space','Run / pause the simulation'],['?','This list']];
 function renderInspector(){
   const b=$('#iBody');if(!b||$('#insp').hidden)return;const W=S.shape.world;
@@ -47,7 +47,7 @@ function toggleKeys(){const k=$('#keys');if(k.hidden){k.innerHTML=`<div class="i
 addEventListener('keydown',e=>{
   if(e.target.closest&&e.target.closest('textarea,input,select'))return;if(e.metaKey||e.ctrlKey||e.altKey)return;const k=e.key;
   if(k==='?'){toggleKeys();return}
-  if(['1','2','3','4','5'].includes(k)&&!e.shiftKey&&S.mode!=='sculpt'){switchTab(TABS[+k-1][0]);return}
+  if(['1','2','3','4','5','6'].includes(k)&&!e.shiftKey&&S.mode!=='sculpt'){switchTab(TABS[+k-1][0]);return}
   if(k==='n'){newWorld();return}if(k==='v'){newVariation();return}
   if(k==='s'){setMode(S.mode==='sculpt'?'orbit':'sculpt');return}
   if(e.shiftKey&&(k==='{'||k==='}')){S.brush.strength=clamp(S.brush.strength+(k==='}'?.05:-.05),.05,1);drawHud();toast('Strength '+Math.round(S.brush.strength*100)+'%');return}

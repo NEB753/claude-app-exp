@@ -7,7 +7,7 @@ const IC={play:'<path d="M8 5v14l11-7z" fill="currentColor"/>',pause:'<rect x="6
   reset:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',dice:'<rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="15" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><circle cx="9" cy="15" r="1.2" fill="currentColor"/>',
   type:'<path d="M4 7V5h16v2M9 19h6M12 5v14"/>',spring:'<path d="M12 3c2 2.5 3.5 4.3 3.5 6a3.5 3.5 0 0 1-7 0c0-1.7 1.5-3.5 3.5-6z"/><path d="M5 20c2.5-2 4.5-2 7 0s4.5 2 7 0"/>',vent:'<path d="M4 20l5-9 3 3 2-5 6 11z"/><path d="M12 3v3M9 4l1 2M15 4l-1 2"/>',
   focus:'<circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',cabin:'<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/>',stamp:'<path d="M3 19 9 8l4 6 3-4 5 9z"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>'};
-function getK(k){if(k==='S.res')return N;let o=S;for(const p of k.split('.')){if(o==null)return undefined;o=o[p]}return o}
+function getK(k){if(k==='S.res')return N;if(k.startsWith('tw.'))return twGetK(k);let o=S;for(const p of k.split('.')){if(o==null)return undefined;o=o[p]}return o}
 function setK(k,v){const ps=k.split('.');let o=S;for(let i=0;i<ps.length-1;i++)o=o[ps[i]];o[ps[ps.length-1]]=v}
 function defK(k){const [g,f]=k.split('.');if(g==='shape'&&PRESETS[S.preset]&&PRESETS[S.preset].shape[f]!=null)return PRESETS[S.preset].shape[f];if(g==='biome'&&PRESETS[S.preset]&&PRESETS[S.preset].biome[f]!=null)return PRESETS[S.preset].biome[f];let o=DEF();for(const p of k.split('.')){if(o==null)return undefined;o=o[p]}return o}
 const FMT={},autoFmt=step=>step>=1?(v=>fmt(v)):step>=.1?(v=>(+v).toFixed(1)):(v=>(+v).toFixed(2));
@@ -20,7 +20,7 @@ function sliderRow(k,label,min,max,step,value,def,f){
   return `<div class="row" data-k="${k}" data-min="${min}" data-max="${max}" data-step="${step}" data-def="${def!=null?def:''}"><label for="${id}">${label}</label><div class="sl" id="${id}" role="slider" tabindex="0" aria-label="${esc(label)}" aria-valuemin="${min}" aria-valuemax="${max}" aria-valuenow="${v}"><div class="tr"><div class="fi"></div></div><div class="th"></div><div class="bub goldm"></div></div><button class="val" type="button" aria-label="Type a value for ${esc(label)}">${FMT[k](v)}</button></div>`;
 }
 function bindSliders(root,onChange,defOf){
-  onChange=onChange||((k,v,commit)=>{setK(k,v);onParam(k,v,commit)});
+  const oc=onChange||((k,v,commit)=>{setK(k,v);onParam(k,v,commit)});onChange=(k,v,c)=>{if(k.startsWith('tw.')){if(typeof townSliderChange==='function')townSliderChange(k,v,c);return}oc(k,v,c)};
   $$('.row[data-k]',root).forEach(row=>{
     const k=row.dataset.k,sl=row.querySelector('.sl'),val=row.querySelector('.val'),lab=row.querySelector('label');if(!sl)return;
     const min=+row.dataset.min,max=+row.dataset.max,step=+row.dataset.step,fi=sl.querySelector('.fi'),th=sl.querySelector('.th'),bub=sl.querySelector('.bub');
@@ -50,7 +50,7 @@ function bindSliders(root,onChange,defOf){
   });
 }
 function tg(k,label,small){const id='t_'+k.replace(/\W/g,'_');return `<label class="toggle" for="${id}"><span>${label}${small?`<small>${small}</small>`:''}</span><span class="switch"><input type="checkbox" id="${id}" data-tk="${k}" ${getK(k)?'checked':''}><span></span></span></label>`}
-function bindToggles(root,onChange){$$('input[data-tk]',root).forEach(c=>c.onchange=()=>{const k=c.dataset.tk;setK(k,c.checked);haptic(6);(onChange||onParam)(k,c.checked,true)})}
+function bindToggles(root,onChange){$$('input[data-tk]',root).forEach(c=>c.onchange=()=>{const k=c.dataset.tk;if(k.startsWith('tw.')){TW.gen[k.split('.')[1]]=c.checked;haptic(6);return}setK(k,c.checked);haptic(6);(onChange||onParam)(k,c.checked,true)})}
 function seg(k,opts,cls){return `<div class="seg ${cls||''}" role="group"><span class="ind"></span>${opts.map(([v,l])=>`<button type="button" data-seg="${k}" data-v="${v}" aria-pressed="${String(getK(k))===String(v)}">${l}</button>`).join('')}</div>`}
 function segIndicator(el){if(!el)return;let ind=el.querySelector(':scope > .ind');if(!ind){ind=document.createElement('span');ind.className='ind';el.prepend(ind)}const b=el.querySelector('button[aria-pressed="true"]');if(!b){ind.style.opacity=0;return}ind.style.opacity=1;ind.style.width=b.offsetWidth+'px';ind.style.transform=`translateX(${b.offsetLeft}px)`}
 function bindSegs(root,onChange){
@@ -100,9 +100,10 @@ const TABS=[
   ['sculpt','Sculpt','<path d="M14 4l6 6-9 9H5v-6z"/><path d="M12 6l6 6"/>'],
   ['simulate','Simulate','<path d="M3 15c2 0 2-1.5 4.5-1.5S10 15 12 15s2.5-1.5 4.5-1.5S19 15 21 15"/><path d="M3 19c2 0 2-1.5 4.5-1.5S10 19 12 19s2.5-1.5 4.5-1.5S19 19 21 19"/><path d="M12 3c2 2.5 3.5 4.3 3.5 6a3.5 3.5 0 0 1-7 0c0-1.7 1.5-3.5 3.5-6z"/>'],
   ['biome','Biome','<path d="M12 21v-6"/><path d="M12 3l5 7h-3l4 5H6l4-5H7z"/>'],
+  ['town','Towns','<path d="M3 21h18M5 21V11l4-3 4 3v10M13 21v-7l3-2.5 3 2.5v7"/><path d="M8 21v-3h2v3"/>'],
   ['export','Export','<path d="M12 4v11M7 10l5 5 5-5"/><path d="M4 18v2h16v-2"/>']
 ];
-const DETENT_DEFAULT={create:'peek',sculpt:'peek',simulate:'peek',biome:'peek',export:'half'};
+const DETENT_DEFAULT={create:'peek',sculpt:'peek',simulate:'peek',biome:'peek',town:'half',export:'half'};
 const landscape=()=>innerWidth>innerHeight&&innerHeight<=560;
 let sheetState='half',insets={t:0,b:0};
 function measureInsets(){const p=document.createElement('div');p.style.cssText='position:fixed;left:0;top:0;width:1px;height:1px;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden';document.body.appendChild(p);const cs=getComputedStyle(p);insets={t:parseFloat(cs.paddingTop)||0,b:parseFloat(cs.paddingBottom)||0};p.remove()}
@@ -146,7 +147,7 @@ function dockQuick(b){const t=b.dataset.tab;haptic(14);const items={
   export:Object.entries(EXPORT_TARGETS).filter(([k])=>k!=='custom').map(([k,x])=>({v:()=>{S.exp.target=k;exportNow()},label:'Export for '+x.n,icon:IC.play}))}[t];
   openMenu(b,items,f=>f())}
 function switchTab(t,sub,anim){S.tab=t;if(sub){if(t==='create')S.sub.create=sub;if(t==='simulate')S.sub.sim=sub}
-  if(t==='sculpt'&&S.mode!=='sculpt')setMode('sculpt');if(t!=='sculpt'&&t!=='simulate'&&['spring','channel','vent'].includes(S.tool))S.tool='raise';if(t!=='sculpt'&&S.mode==='sculpt'&&!(t==='simulate'&&['spring','channel','vent'].includes(S.tool)))setMode('orbit');
+  if(t==='sculpt'&&S.mode!=='sculpt')setMode('sculpt');if(t==='town'&&S.mode==='sculpt')setMode('orbit');if(t!=='sculpt'&&t!=='simulate'&&['spring','channel','vent'].includes(S.tool))S.tool='raise';if(t!=='sculpt'&&S.mode==='sculpt'&&!(t==='simulate'&&['spring','channel','vent'].includes(S.tool)))setMode('orbit');
   setDetent(t==='create'&&S.sub.create==='nodes'?(SET.layout==='float'?'half':'full'):DETENT_DEFAULT[t]||'half');renderSheet(anim||'enter');saveSoon()}
 function setMode(m){S.mode=m;const o=$('#modeOrbit'),s=$('#modeSculpt');o.setAttribute('aria-pressed',m==='orbit');s.setAttribute('aria-pressed',m==='sculpt');o.className='press'+(m==='orbit'?' anodized':'');s.className='press'+(m==='sculpt'?' anodized':'');
   $('#hud').hidden=m!=='sculpt'||!['raise','lower','smooth','flatten','roughen','terrace','erode','stamp','paint','plant','channel'].includes(S.tool);drawHud();
@@ -191,11 +192,12 @@ function renderHead(){
   if(t==='sculpt')h=`<h2>Sculpt</h2><span class="grow"></span><span class="tag ${S.mode==='sculpt'?'on':''}">${S.mode==='sculpt'?'Brush on':'Camera'}</span>`;
   if(t==='simulate')h=`<h2>Simulate</h2><span class="grow"></span>${SR.running?`<span class="tag on">${SIMDEF[SR.kind].title} running</span>`:''}`;
   if(t==='biome')h=`<h2>Biome</h2><span class="grow"></span>${ddBtn('palDD',PALETTES[S.biome.palette].name)}`;
+  if(t==='town')h=townHead();
   if(t==='export')h=`<h2>Export</h2><span class="grow"></span><button class="dd anodized press" id="expTop">${svg('<path d="M12 4v11M7 10l5 5 5-5"/><path d="M4 18v2h16v-2"/>')}<span>Export</span></button>`;
-  hd.innerHTML=h;const on=(id,f)=>{const el=$('#'+id,hd);if(el)el.onclick=f};
+  hd.innerHTML=h+(typeof panelHelpBtn==='function'?panelHelpBtn():'');if(typeof bindPanelHelp==='function')bindPanelHelp(hd);const on=(id,f)=>{const el=$('#'+id,hd);if(el)el.onclick=f};
   on('presetDD',e=>openMenu(e.currentTarget,Object.keys(PRESETS).map(k=>({v:k,label:k,sub:PALETTES[PRESETS[k].biome.palette].name+' · '+fmtLen(PRESETS[k].shape.maxH)+' relief'})),v=>{applyPreset(v);toast(v+' loaded','ok')},S.preset));
   if(t==='create')bindSegs(hd,(k,v)=>subCreate(v));
-  on('gBuild',()=>buildFromGraph());on('pickTop',pickPhoto);on('expTop',exportNow);
+  on('gBuild',()=>buildFromGraph());on('twGen',()=>runGen());on('pickTop',pickPhoto);on('expTop',exportNow);
   on('palDD',e=>openMenu(e.currentTarget,Object.entries(PALETTES).map(([k,p])=>({v:k,label:p.name,sw:`linear-gradient(135deg,rgb(${p.lush}),rgb(${p.rock}) 60%,rgb(${p.snow}))`})),v=>{S.biome.palette=v;recolorSoon();scatterSoon();renderHead()},S.biome.palette));
 }
 function subCreate(v){S.sub.create=v;setDetent(v==='nodes'?'full':v==='photo'?'half':'peek');renderSheet('enter');saveSoon()}
@@ -241,6 +243,7 @@ function renderSheet(anim){
       S.tool==='mask'?`<div class="label">Mask protects land from every height tool</div>${seg('maskMode',[['add','Protect'],['remove','Unprotect']])}<div class="btns"><button class="btn plain press" id="mkSlope">Protect cliffs</button><button class="btn plain press" id="mkInv">Invert</button><button class="btn plain press" id="mkClr">Clear</button></div>`:'';
     h=`<div class="chips">${Object.entries(TOOL_CATS).map(([k,c])=>`<button class="chipb press" data-tcat="${k}" aria-pressed="${cat===k}">${c.n}</button>`).join('')}</div>
     <div class="tools">${TOOLS.filter(t=>tl.includes(t[0])).map(([k,l,p])=>`<button class="tool press${S.tool===k?' anodized':''}" data-tool="${k}" aria-pressed="${S.tool===k}">${svg(p)}${l}</button>`).join('')}</div>${ctxh}
+    ${['raise','lower','roughen','crease','pinch','smudge'].includes(S.tool)?sliderRow('brush.nat','Realism',0,1,.01,null,.75,v=>v<.05?'Clay':pct(v)):''}
     ${acc('Brush',sliderRow('brush.size','Size',5,Math.round(S.shape.world*.3),1,null,240,v=>fmtLen(v*2))+sliderRow('brush.strength','Strength',.05,1,.01,null,.5,pct)+sliderRow('brush.falloff','Softness',0,1,.01,null,.7,pct)
       +`<div class="row" style="grid-template-columns:96px 1fr"><label>Tip</label>${ddBtn('shapeDD',BRUSH_SHAPES[S.brush.shape]||'Soft','metal wide')}</div><div class="row" style="grid-template-columns:96px 1fr"><label>Symmetry</label>${ddBtn('symDD',SYMS[S.brush.sym]||'Off','metal wide')}</div>`
       +sliderRow('brush.lazy','Stabilizer',0,.9,.01,null,.25,pct)+tg('brush.hold','Airbrush','Keep building while you hold still'),false,fmtLen(S.brush.size*2)+' · '+pct(S.brush.strength))}
@@ -275,17 +278,18 @@ function renderSheet(anim){
     ${['conifer','broadleaf','bush','grass','boulder','deadfall'].map(typeAcc).join('')}
     ${acc('Buildings & props',tg('scatter.types.structure.on','Show')+sliderRow('scatter.types.structure.count','Count',0,30,1,null,6)+sliderRow('scatter.types.structure.size','Size',.5,4,.05,null,1.6,v=>(+v).toFixed(2)+'×')+`<div class="btns"><button class="btn plain press" id="stReset">Auto-place again</button></div><p class="hint">${S.structs.length?S.structs.length+' placed by AI, a photo, or you. Auto-place again replaces them.':'Cabins, houses and towers settle on flat, dry ground. Long-press the map to place one yourself.'}</p>`,false,`<span data-count="structure">${scatterCounts.structure||0}</span>`)}
     <p class="tip" style="margin-top:10px">${TIPS.biome}</p>`;
+  }else if(t==='town'){h=townPanelHTML()
   }else if(t==='export'){
     const e=S.exp,T=EXPORT_TARGETS[e.target]||EXPORT_TARGETS.blender,eff={...e,...T.o},det=[[1,'Full'],[2,'Half'],[4,'Quarter'],[8,'Eighth']].filter(([s])=>(N-1)/s>=64),custom=e.target==='custom';
     h=`<div class="label" style="margin-top:0">Made for</div>${ddBtn('tgtDD',T.n,'metal wide')}<p class="hint">${T.d}</p><div style="height:6px"></div>
-    ${custom?seg('exp.fmt',[['glb','GLB'],['obj','OBJ'],['height','Heightmap']]):''}
+    <div class="adv">${custom?seg('exp.fmt',[['glb','GLB'],['obj','OBJ'],['height','Heightmap']]):''}
     ${(eff.fmt==='glb'||eff.fmt==='obj')?`<div class="row" style="grid-template-columns:96px 1fr"><label>Mesh detail</label>${ddBtn('detDD',(det.find(d=>d[0]===e.detail)||det[0])[1],'metal wide')}</div>`:''}
     <div class="row" style="grid-template-columns:96px 1fr"><label>Textures</label>${ddBtn('texDD',Math.min(e.tex,QUALITY[S.quality].tex)+' px','metal wide')}</div>
     ${eff.fmt==='glb'?`<div class="row" style="grid-template-columns:96px 1fr"><label>Tiles</label>${seg('exp.tiles',[[1,'1'],[2,'2×2'],[4,'4×4']])}</div>`:''}
     ${(eff.fmt==='glb'||eff.fmt==='obj')?tg('exp.base','Solid base',eff.fmt==='obj'?'Watertight shell for printing':'Closes the sides and bottom')+(e.base||eff.base?sliderRow('exp.depth','Base depth',5,300,5,null,40,m):''):''}
     ${custom||eff.fmt==='glb'?tg('exp.pbr','Detail maps','Normal + AO/roughness baked from full-res heights'):''}
     ${eff.fmt==='glb'?tg('exp.scatter','Include trees, rocks & buildings','One mesh per asset, placed by instances')+tg('exp.atlas','Palette texture atlas','One tiny texture instead of vertex colors'):''}
-    ${tg('exp.masks','Extra masks','Slope, water, vegetation and snow PNGs')}
+    ${tg('exp.masks','Extra masks','Slope, water, vegetation and snow PNGs')}</div>
     <div class="facts" id="expFacts"></div><p class="tip" style="margin-top:12px">${TIPS.export}</p>`;
   }
   b.innerHTML=h;b.classList.remove('enter','enter-l','enter-r');if(anim&&!SET.reduceMotion){void b.offsetWidth;b.classList.add(anim)}b.scrollTop=anim?0:b.scrollTop;bindPanel(t);
@@ -293,10 +297,11 @@ function renderSheet(anim){
 function bindPanel(t){
   const b=$('#sheetBody'),on=(id,f)=>{const el=$('#'+id,b);if(el)el.onclick=f};
   bindSliders(b);bindToggles(b);
-  bindSegs(b,(k,v)=>{if(k==='sub.create'){subCreate(v);return}if(k==='sub.sim'){S.sub.sim=v;renderSheet('enter');return}setK(k,v);onParam(k,v,true)});
+  bindSegs(b,(k,v)=>{if(k.startsWith('tw.')){TW.gen[k.split('.')[1]]=v;return}if(k==='sub.create'){subCreate(v);return}if(k==='sub.sim'){S.sub.sim=v;renderSheet('enter');return}setK(k,v);onParam(k,v,true)});
   $$('textarea',b).forEach(ta=>ta.oninput=()=>{ta.style.height='38px';ta.style.height=Math.min(ta.scrollHeight,110)+'px'});
   const pb=(id,kind)=>{const ta=$('#'+id,b);if(!ta)return;const go=()=>promptBar(kind,ta.value,$('#'+id+'Note'),$('#'+id+'Go'));on(id+'Go',go);ta.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();go()}}};
-  pb('genPrompt','generate');pb('nodePrompt','nodes');pb('simPrompt','simulate');
+  pb('genPrompt','generate');pb('nodePrompt','nodes');pb('simPrompt','simulate');pb('townPrompt','town');
+  if(t==='town'){townBind(b);townSelRing()}else{selRing.visible=false}
   if(t==='create'&&S.sub.create==='generate'){
     on('newWorld',newWorld);on('newVar',newVariation);
     $$('[data-lf]',b).forEach(x=>x.onclick=()=>{S.shape.type=x.dataset.lf;S.shape.typeAmt=S.shape.typeAmt??1;S.preset='Custom';regenerate();sfx('pop');renderSheet();toast(LANDFORMS[x.dataset.lf].n+' · '+LANDFORMS[x.dataset.lf].d)});

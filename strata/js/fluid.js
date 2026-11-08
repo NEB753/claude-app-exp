@@ -13,7 +13,7 @@ function fluidClear(){if(!FL.R)return;for(const k of ['d','s','fL','fR','fT','fB
 function fluidStep(){
   const R=FL.R,n=R*R,{b,d,s,fL,fR,fT,fB,u,v,wet}=FL,l=S.shape.world/(R-1),g=9.81,sea=seaLevel(),F=S.fluid;
   let dmax=.1;for(let k=0;k<n;k++){if(b[k]>=sea&&d[k]>dmax)dmax=d[k]}
-  const dt=Math.min(4,.45*l/Math.sqrt(g*dmax)),rain=F.rain*.0016*dt,K=dt*g/l;
+  const dt=Math.min(3,.25*l/Math.sqrt(g*dmax)),rain=F.rain*.0016*dt,K=dt*g/l;
   // sources
   if(rain>0)for(let k=0;k<n;k++)if(b[k]>=sea)d[k]+=rain;
   for(const sp of F.springs){const ci=Math.round(sp.u*(R-1)),cj=Math.round(sp.v*(R-1)),add=F.flow*(sp.rate||1)*.6*dt;
@@ -24,7 +24,7 @@ function fluidStep(){
   for(let j=0;j<R;j++)for(let i=0;i<R;i++){
     const k=j*R+i,hk=b[k]+d[k];
     const hl=i>0?b[k-1]+d[k-1]:b[k],hr=i<R-1?b[k+1]+d[k+1]:b[k],ht=j>0?b[k-R]+d[k-R]:b[k],hb=j<R-1?b[k+R]+d[k+R]:b[k];
-    let a=Math.max(0,fL[k]*.995+K*(hk-hl)),c=Math.max(0,fR[k]*.995+K*(hk-hr)),e=Math.max(0,fT[k]*.995+K*(hk-ht)),f=Math.max(0,fB[k]*.995+K*(hk-hb));
+    let a=Math.max(0,fL[k]*.985+K*(hk-hl)),c=Math.max(0,fR[k]*.985+K*(hk-hr)),e=Math.max(0,fT[k]*.985+K*(hk-ht)),f=Math.max(0,fB[k]*.985+K*(hk-hb));
     const sum=(a+c+e+f)*dt;if(sum>d[k]&&sum>0){const sc=d[k]/sum;a*=sc;c*=sc;e*=sc;f*=sc}
     fL[k]=a;fR[k]=c;fT[k]=e;fB[k]=f;
   }
@@ -35,6 +35,11 @@ function fluidStep(){
     const da=(d0+d[k])*.5+1e-4;u[k]=((inL-fL[k])+(fR[k]-inR))*.5/da;v[k]=((inT-fT[k])+(fB[k]-inB))*.5/da;
     const sp=Math.hypot(u[k],v[k]);if(sp>12){u[k]*=12/sp;v[k]*=12/sp}
   }
+  /* light mass-conserving diffusion of the water surface: damps the cell-to-cell checkerboard the pipe model can
+     develop on steep beds (it showed up as striped, half-transparent bands) */
+  {const T=FL.tmp&&FL.tmp.length===n?FL.tmp:(FL.tmp=new Float32Array(n));T.set(d);
+    for(let j=1;j<R-1;j++)for(let i=1;i<R-1;i++){const k=j*R+i;if(T[k]<=0&&T[k-1]<=0&&T[k+1]<=0&&T[k-R]<=0&&T[k+R]<=0)continue;const hk=b[k]+T[k];let tr=0;
+      for(const q of [k-1,k+1,k-R,k+R]){const dh=(b[q]+T[q])-hk,m=dh>0?Math.min(T[q],dh)*.06:-Math.min(T[k],-dh)*.06;tr+=m}d[k]=Math.max(0,T[k]+tr)}}
   // erosion / deposition
   const carve=F.carve;
   if(carve>0){

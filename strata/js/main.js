@@ -5,8 +5,11 @@ function regenerate(push=true){const old=H?H.slice():null;if(push)pushUndo();gen
 function regenSoon(commit){
   if(regenArmed){pushUndo();regenArmed=false}clearTimeout(regenT);
   if(N>257&&!commit){drawPreview();return}
-  regenT=setTimeout(()=>{const old=H.slice();genHeights();genMoist();clearLayers(false);S.structs=[];fluidSync();updateAll();if(commit)morphFrom(old);saveSoon();drawPreview()},N>257?0:90);
+  regenT=setTimeout(()=>regenAsync(commit),commit?0:60);
 }
+let regenSeq=0;
+async function regenAsync(commit){const my=++regenSeq,n0=N,mh=S.shape.maxH;const f=await genFieldAsync(N,S.shape,S.seed);if(my!==regenSeq||n0!==N)return;/* drop stale results */
+  const old=H.slice();H=new Float32Array(N*N);for(let k=0;k<f.length;k++)H[k]=f[k]*mh;prevMaxH=mh;genMoist();clearLayers(false);S.structs=[];fluidSync();updateAll();if(commit)morphFrom(old);saveSoon();drawPreview();if(commit)scatterSoon(120)}
 function recolorSoon(){if(recolorQ)return;recolorQ=true;requestAnimationFrame(()=>{recolorQ=false;updateAll();renderFacts();saveSoon()})}
 function applyPreset(name){const p=PRESETS[name];if(!p)return false;pushUndo();S.preset=name;S.shape={cone:0,crater:0,weather:.5,type:'standard',typeAmt:1,...p.shape};S.biome={...p.biome};S.macro={x:clamp(p.shape.ridges/.9,0,1),y:clamp((p.shape.warp-.12)/.55,0,1)};regenerate(false);frame(true);renderSheet();return true}
 /* going up a quality tier: bilinear upsampling alone looks soft, so add fine detail where the land is already rough */
@@ -45,7 +48,8 @@ canvas.addEventListener('contextmenu',e=>e.preventDefault());
 canvas.addEventListener('pointerdown',e=>{
   if(FP.on){try{canvas.setPointerCapture(e.pointerId)}catch(_){}fpLookStart(e);return}
   closePanel(true);closeQuick();camAnim=null;try{canvas.setPointerCapture(e.pointerId)}catch(_){}ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,t0:performance.now()});touch();clearTimeout(lpT);
-  if(ptrs.size>=2){if(stroke){if(performance.now()-stroke.t0<260&&undoS.length){restore(undoS.pop());syncUndo()}endStroke(true)}startNav();return}
+  if(ptrs.size>=2){if(TW.g){TW.g=null;townLine.visible=false}if(stroke){if(performance.now()-stroke.t0<260&&undoS.length){restore(undoS.pop());syncUndo()}endStroke(true)}startNav();return}
+  if(ptrs.size===1&&!e.altKey&&townPointerDown(e))return;
   const sculpt=S.mode==='sculpt'&&(e.pointerType!=='mouse'||e.button===0)&&!e.altKey;
   if(sculpt){const p=pick(e.clientX,e.clientY);if(p){
     if(S.tool==='spring'){addSpring(p);return}
@@ -61,12 +65,13 @@ canvas.addEventListener('pointermove',e=>{
   const pt=ptrs.get(e.pointerId);
   if(!pt){if(S.mode==='sculpt'&&e.pointerType==='mouse'){hoverP=pick(e.clientX,e.clientY);placeRing(hoverP,['spring','vent'].includes(S.tool)?S.shape.world*.01:null);showReadout(hoverP)}return}
   const dx=e.clientX-pt.x,dy=e.clientY-pt.y;pt.x=e.clientX;pt.y=e.clientY;if(Math.hypot(pt.x-pt.x0,pt.y-pt.y0)>9)clearTimeout(lpT);
+  if(TW.g){townPointerMove(e);return}
   if(stroke){stroke.cx=e.clientX;stroke.cy=e.clientY;stroke.pressure=e.pointerType==='pen'?e.pressure:0;return}
   if(gesture&&gesture.kind==='multi'){navMulti();return}
   if(!gesture)return;const k=SET.sens||1;
   if(gesture.kind==='orbit'){cam.theta-=dx*.006*k;cam.phi-=dy*.005*k*(SET.invertY?-1:1);placeCamera()}else panBy(dx,dy);
 });
-function endPtr(e){if(FP.on){fpLookEnd();return}clearTimeout(lpT);const pt=ptrs.get(e.pointerId);ptrs.delete(e.pointerId);if(!ptrs.size&&!stroke){clearTimeout(sculptHideT);document.body.classList.remove('sculpting')}
+function endPtr(e){if(FP.on){fpLookEnd();return}clearTimeout(lpT);if(TW.g&&e.type==='pointerup'){ptrs.delete(e.pointerId);townPointerUp();return}if(TW.g){TW.g=null;townLine.visible=false}const pt=ptrs.get(e.pointerId);ptrs.delete(e.pointerId);if(!ptrs.size&&!stroke){clearTimeout(sculptHideT);document.body.classList.remove('sculpting')}
   if(stroke&&ptrs.size===0)endStroke();
   if(pt&&!stroke&&gesture&&gesture.kind==='orbit'&&ptrs.size===0&&e.type==='pointerup'){const moved=Math.hypot(pt.x-pt.x0,pt.y-pt.y0),dt=performance.now()-pt.t0;
     if(moved<10&&dt<300){const now=performance.now();if(now-lastTap.t<320&&Math.hypot(pt.x-lastTap.x,pt.y-lastTap.y)<34){lastTap.t=0;const p=pick(pt.x,pt.y);if(p){focusAt(p);haptic(10)}}else lastTap={t:now,x:pt.x,y:pt.y}}}
@@ -87,8 +92,8 @@ function beginStroke(p,e){
   applyBrush(p,1);emitDust(p,10,dustColor());loopOn('sculpt',.3);placeRing(p);showReadout(p);
   clearTimeout(sculptHideT);sculptHideT=setTimeout(()=>{if(stroke)document.body.classList.add('sculpting')},260);
 }
-function afterEdit(){flushRegion();if(baseDirty)rebuildBase();computeStats();updateWater();fluidSync();if(['paint','plant','mask','stamp'].includes(S.tool))scatterSoon(160);else scatterReseat();saveSoon();renderFacts()}
-function endStroke(cancel){stroke=null;loopOff('sculpt');clearTimeout(sculptHideT);document.body.classList.remove('sculpting');afterEdit();if(!hoverP){placeRing(null);$('#readout').hidden=true}}
+function afterEdit(){flushRegion();TW.dirtyWalls=true;if(baseDirty)rebuildBase();computeStats();updateWater();fluidSync();if(['paint','plant','mask','stamp'].includes(S.tool))scatterSoon(160);else scatterReseat();saveSoon();renderFacts()}
+function endStroke(cancel){if(stroke&&!cancel&&['raise','lower','roughen','crease','pinch','smudge'].includes(S.tool))weatherRegion(stroke.bb,(S.brush.nat??.75)*(S.tool==='raise'||S.tool==='lower'?1:.6));stroke=null;loopOff('sculpt');clearTimeout(sculptHideT);document.body.classList.remove('sculpting');afterEdit();if(!hoverP){placeRing(null);$('#readout').hidden=true}}
 function strokeTick(now){
   if(!stroke)return;const dt=Math.min(.05,(now-stroke.last)/1000);stroke.last=now;
   const raw=pick(stroke.cx,stroke.cy);if(!raw)return;const W=S.shape.world,lz=S.brush.lazy||0,tp=stroke.tp;tp.x=lerp(tp.x,raw.x,1-lz*.9);tp.z=lerp(tp.z,raw.z,1-lz*.9);
@@ -133,17 +138,17 @@ function dustColor(){const t=S.tool;if(t==='paint'){const c=PAINTS[S.paint].c;re
 let movingCls=false,lastFrame=0;
 function loop(now){
   const dt=Math.min(.05,(now-(lastT||now))/1000);lastT=now;
-  camTick(now);morphTick(now);strokeTick(now);simTick(now);fpTick(dt);dustTick(dt);CU.uClouds.value=S.view.clouds?1:0;
+  camTick(now);morphTick(now);strokeTick(now);simTick(now);fpTick(dt);dustTick(dt);CU.uClouds.value=S.view.clouds&&!(QUALITY[S.quality]||{}).lite?1:0;
   if(S.view.clouds&&now-lastInteract<15000&&!document.hidden&&now-lastCloud>50){lastCloud=now;CU.uTime.value=now/1000;CU.uWorld.value=S.shape.world;dirty=true}
   const idle=now-lastInteract>15000;
-  if(S.view.anim&&waterMesh&&waterMesh.visible&&!idle&&!document.hidden&&now-lastAnim>33){lastAnim=now;const tt=now/1000;WU.uWO1.value.set((tt*.011)%1,(tt*.006)%1);WU.uWO2.value.set((-tt*.017)%1,(tt*.013)%1);dirty=true}
+  if(S.view.anim&&!(QUALITY[S.quality]||{}).lite&&waterMesh&&waterMesh.visible&&!idle&&!document.hidden&&now-lastAnim>33){lastAnim=now;const tt=now/1000;WU.uWT.value=tt;WU.uWO1.value.set((tt*.011)%1,(tt*.006)%1);WU.uWO2.value.set((-tt*.017)%1,(tt*.013)%1);dirty=true}
   flushRegion();camTickMode(now);const act=!!(stroke||camAnim||ptrs.size||(FP.on&&now-lastInteract<120)||(SR.running&&SR.kind!=='erode')||morph);adaptDPR(now,act);
   /* glass gets cheaper while the scene moves (re-blurring a moving canvas is the main GPU cost behind the panels) */
   if(act!==movingCls){movingCls=act;document.body.classList.toggle('moving',act)}
   /* frame pacing: battery saver caps at 30 fps; otherwise render every frame that has changes (ProMotion on Max) */
-  const cap=SET.power==='battery'?30:SET.power==='max'?0:60;
-  if(dirty&&(!cap||now-lastFrame>=1000/cap-2)){dirty=false;lastFrame=now;renderFrame()}
-  if(typeof inspTick==='function')inspTick(now);
+  const cap=SET.power==='battery'||(QUALITY[S.quality]||{}).lite?30:SET.power==='max'?0:60;
+  if(dirty&&(!cap||now-lastFrame>=1000/cap-2)){dirty=false;lastFrame=now;shadowTick(now,!!stroke||!!SR.running);renderFrame()}
+  if(typeof inspTick==='function')inspTick(now);lodTick(now);
   requestAnimationFrame(loop);
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{applyTheme()});
@@ -159,7 +164,7 @@ new MutationObserver(()=>applyTheme()).observe(document.documentElement,{attribu
   applyTheme();buildGeometry();terrain.material=MATS[S.view.look]||MATS.natural;applyQuality();updateAll();frame();
   ensureScatterMeshes();buildScatter();updateSpringMarkers();
   if(typeof layoutDesk==='function')layoutDesk();setMode('orbit');sheetState=SET.layout==='minimal'?'closed':DETENT_DEFAULT[S.tab]||'half';layoutSheet();renderSheet('enter');syncUndo();
-  requestAnimationFrame(loop);
+  requestAnimationFrame(loop);if(!SET.tourDone&&!restored)setTimeout(()=>{if(typeof startTour==='function'&&$('#home').hidden)startTour()},1600);setTimeout(()=>{const w=genWorker();w&&genFieldAsync(65,S.shape,S.seed)},2500);/* warm the generator worker */
   toast(restored?'Welcome back · '+S.name:'Drag to orbit · double-tap to zoom in · long-press for quick actions');
   if(!restored)saveProject(true).catch(()=>{});
   postSync();
