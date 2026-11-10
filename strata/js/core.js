@@ -68,12 +68,16 @@ const QUALITY={
   ultra:{label:'Ultra',sub:'1025² grid · for iPhone 17 Pro-class chips',res:1025,dpr:3,shadow:4096,scatter:2,sim:257,tex:4096,undoMB:220}
 };
 const SCATTER_TYPES={
-  conifer:{label:'Conifers',max:9000,perKm:1300,unit:17,def:{on:true,density:.55,lo:.06,hi:.78,slope:38,size:1.6,cluster:.6}},
-  broadleaf:{label:'Broadleaf trees',max:6000,perKm:900,unit:13,def:{on:true,density:.4,lo:.0,hi:.42,slope:26,size:1.6,cluster:.5}},
-  bush:{label:'Bushes',max:9000,perKm:1500,unit:3.2,def:{on:true,density:.45,lo:0,hi:.6,slope:40,size:1.8,cluster:.35}},
-  grass:{label:'Grass tufts',max:22000,perKm:4200,unit:1.3,def:{on:true,density:.55,lo:0,hi:.5,slope:30,size:2,cluster:.25}},
+  conifer:{label:'Conifers',max:22000,perKm:3800,unit:17,def:{on:true,density:.6,lo:0,hi:1,slope:42,size:1.5,cluster:.6}},
+  broadleaf:{label:'Broadleaf trees',max:16000,perKm:2700,unit:13,def:{on:true,density:.5,lo:0,hi:1,slope:32,size:1.5,cluster:.5}},
+  bush:{label:'Bushes',max:9000,perKm:1500,unit:3.2,def:{on:true,density:.45,lo:0,hi:1,slope:48,size:1.6,cluster:.35}},
+  grass:{label:'Grass tufts',max:22000,perKm:4200,unit:1.3,def:{on:true,density:.55,lo:0,hi:1,slope:40,size:2,cluster:.25}},
   boulder:{label:'Boulders',max:4000,perKm:420,unit:4.5,def:{on:true,density:.35,lo:0,hi:1,slope:75,size:1.6,cluster:.2}},
-  deadfall:{label:'Fallen trees & stumps',max:3000,perKm:240,unit:9,def:{on:true,density:.35,lo:0,hi:.7,slope:28,size:1.4,cluster:.65}},
+  deadfall:{label:'Fallen trees & stumps',max:3000,perKm:240,unit:9,def:{on:true,density:.4,lo:0,hi:1,slope:38,size:1.2,cluster:.65}},
+  snag:{label:'Dead standing trees',max:2500,perKm:120,unit:14,def:{on:true,density:.45,lo:0,hi:1,slope:42,size:1.2,cluster:0}},
+  fern:{label:'Ferns & undergrowth',max:12000,perKm:2400,unit:1.3,def:{on:true,density:.55,lo:0,hi:1,slope:36,size:1.4,cluster:0}},
+  flowers:{label:'Wildflowers',max:12000,perKm:2200,unit:.8,def:{on:true,density:.5,lo:0,hi:1,slope:24,size:1.6,cluster:0}},
+  branches:{label:'Branches & debris',max:9000,perKm:1600,unit:2.2,def:{on:true,density:.5,lo:0,hi:1,slope:34,size:1.3,cluster:0}},
   structure:{label:'Buildings & props',max:60,unit:8,def:{on:true,count:6,size:1.6}}
 };
 const PAINTS={grass:{n:'Grass',c:[78,106,46]},meadow:{n:'Meadow',c:[136,138,68]},sand:{n:'Sand',c:[208,188,138]},dirt:{n:'Dirt',c:[104,80,56]},gravel:{n:'Gravel',c:[150,140,124]},cobble:{n:'Cobblestone',c:[122,114,104]},clay:{n:'Clay',c:[168,104,70]},asphalt:{n:'Asphalt',c:[62,62,64]},mud:{n:'Wet mud',c:[70,58,44]},rock:{n:'Rock',c:[118,112,104]},basalt:{n:'Basalt',c:[50,47,46]},snow:{n:'Snow',c:[238,242,246]},erase:{n:'Erase',c:null}};

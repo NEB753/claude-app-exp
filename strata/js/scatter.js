@@ -45,6 +45,9 @@ function assetGeos(){
   A.pine=mergeGeos([colored(new G.CylinderGeometry(.03,.05,.62,6).translate(0,.31,0),[104,72,48]),colored(new G.ConeGeometry(.24,.34,7).translate(0,.6,0),[34,62,44]),colored(new G.ConeGeometry(.18,.3,7).translate(0,.78,0),[40,70,48]),colored(new G.ConeGeometry(.1,.22,6).translate(0,.95,0),[46,78,52])]);
   A.birch=mergeGeos([colored(new G.CylinderGeometry(.028,.04,.6,6).translate(0,.3,0),[226,222,212]),colored(new G.BoxGeometry(.06,.02,.06).translate(0,.22,0),[50,46,44]),colored(new G.IcosahedronGeometry(.22,0).scale(1,1.25,1).translate(0,.72,0),[122,152,72]),colored(new G.IcosahedronGeometry(.16,0).translate(.12,.56,.05),[134,160,78])]);
   A.log=mergeGeos([colored(new G.CylinderGeometry(.055,.07,1,6).rotateZ(Math.PI/2).translate(0,.06,0),[98,74,52]),colored(new G.CylinderGeometry(.02,.03,.22,5).rotateZ(.9).translate(.2,.14,.04),[92,70,50]),colored(new G.CylinderGeometry(.07,.07,.02,6).rotateZ(Math.PI/2).translate(.505,.06,0),[170,140,100])]);
+  A.snag=mergeGeos([colored(new G.CylinderGeometry(.03,.06,1,6).translate(0,.5,0),[120,110,100]),colored(new G.CylinderGeometry(.01,.02,.3,4).rotateZ(.8).translate(.08,.7,0),[110,100,90])]);
+  A.fern=mergeGeos([colored(new G.ConeGeometry(.5,.35,6).translate(0,.17,0),[70,110,50])]);A.flowers=mergeGeos([colored(new G.ConeGeometry(.3,.4,5).translate(0,.2,0),[200,190,70])]);
+  A.branches=mergeGeos([colored(new G.CylinderGeometry(.02,.03,1,4).rotateZ(Math.PI/2).rotateY(.4).translate(0,.03,0),[100,80,60]),colored(new G.CylinderGeometry(.015,.02,.7,4).rotateZ(Math.PI/2).rotateY(-.8).translate(.1,.03,.1),[100,80,60])]);
   A.stump=mergeGeos([colored(new G.CylinderGeometry(.1,.14,.18,7).translate(0,.09,0),[104,80,58]),colored(new G.CylinderGeometry(.1,.1,.01,7).translate(0,.185,0),[176,146,104])]);
   A.house=mergeGeos([colored(new G.BoxGeometry(1,.72,.8).translate(0,.36,0),[214,206,196]),colored(new G.CylinderGeometry(.6,.6,1.12,3).rotateZ(Math.PI/2).rotateX(-Math.PI/2).scale(1,.7,.86).translate(0,.92,0),[92,64,52]),
     colored(new G.BoxGeometry(.2,.4,.02).translate(-.2,.2,.41),[70,48,34]),colored(new G.BoxGeometry(.18,.16,.02).translate(.22,.45,.41),[200,214,224]),colored(new G.BoxGeometry(.18,.16,.02).translate(.22,.45,-.41),[200,214,224]),colored(new G.BoxGeometry(.14,.4,.14).translate(-.32,1.08,-.15),[150,90,74])]);
@@ -100,7 +103,7 @@ function assetGeosHD(){
   return A;
 }
 let ASSETS_HD=null;const scatterMatHD=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.82,metalness:0,envMapIntensity:.5,side:THREE.DoubleSide});
-const hdTier=()=>S.quality==='pro'||S.quality==='ultra';
+const hdTier=()=>false;/* billboards replaced the near/far model swap */
 
 const SCAT={};let scatterCounts={};
 /* level of detail: on Pro/Ultra the master meshes (all instances, light models) are split every time the camera moves
@@ -119,7 +122,7 @@ function partitionLOD(force){if(!hdTier()||!SCAT.conifer)return;const cp=camera.
     nr.count=ni;fr.count=fi;nr.instanceMatrix.needsUpdate=fr.instanceMatrix.needsUpdate=true;nr.instanceColor.needsUpdate=fr.instanceColor.needsUpdate=true}
   lodPos.copy(cp);dirty=true;shadowDirty()}
 function lodTick(now){if(!hdTier()||now-lodT<160)return;const R=Math.max(240,S.shape.world*.1);if(camera.position.distanceTo(lodPos)>R*.22){lodT=now;partitionLOD()}}
-const TREE_KEYS=['conifer','pine','broadleaf','birch','bush','grass','boulder','log','stump'];
+const TREE_KEYS=['conifer','pine','broadleaf','birch','bush','grass','boulder','log','stump','snag','fern','flowers','branches'];
 const STRUCT_KEYS=['cabin','house','tower','bridge','fence','well','lamp','crate','haybale'];
 const MAT_TINT={wood:[1,1,1],brick:[1.3,.66,.55],stone:[1,1,1.04],metal:[.82,.9,1.05],clay:[1.22,.86,.66]};
 const parentOf=k=>({pine:'conifer',birch:'broadleaf',log:'deadfall',stump:'deadfall'})[k]||k;
@@ -140,55 +143,54 @@ function scatterSoon(ms){clearTimeout(scatterT);scatterT=setTimeout(buildScatter
 const _m=new THREE.Matrix4(),_q=new THREE.Quaternion(),_e=new THREE.Euler(),_p=new THREE.Vector3(),_s=new THREE.Vector3(),_c=new THREE.Color();
 function slopeDeg(gx,gy){const cell=S.shape.world/(N-1),dx=hAt(gx+1,gy)-hAt(gx-1,gy),dy=hAt(gx,gy+1)-hAt(gx,gy-1);return Math.atan(Math.hypot(dx,dy)/(2*cell))*180/Math.PI}
 function buildScatter(){
-  if(!H)return;ensureScatterMeshes();
-  const on=S.scatter.on,W=S.shape.world,area=(W/1000)**2,sea=seaLevel(),vex=S.view.vex,q=QUALITY[S.quality].scatter,hiT=Math.max(stats.hi,sea+1),cell=W/(N-1),forest=S.scatter.forest??1,fd=(typeof FL!=='undefined'&&FL.R&&FL.d)?FL:null;
+  if(!H)return;ensureScatterMeshes();ecoCompute();
+  const on=S.scatter.on,W=S.shape.world,area=(W/1000)**2,sea=seaLevel(),vex=S.view.vex,q=QUALITY[S.quality].scatter,hiT=Math.max(stats.hi,sea+1),cell=W/(N-1),forest=S.scatter.forest??1,fd=(typeof FL!=='undefined'&&FL.R&&FL.d)?FL:null,E=ECO,tl=E.tl,rel=Math.max(stats.hi-sea,1);
   scatterCounts={};const used={};for(const k of TREE_KEYS)used[k]=0;
-  ['conifer','broadleaf','bush','grass','boulder','deadfall'].forEach((t,ti)=>{
-    const cfg=S.scatter.types[t],T=SCATTER_TYPES[t],vars=VARIANTS[t]||[t];
-    if(!on||!cfg||!cfg.on||cfg.density<=0){scatterCounts[t]=0;return}
-    const fm=t==='grass'||t==='boulder'?1:forest,cap=vars.reduce((a,v)=>a+SCAT[v].userData.max,0),target=Math.min(cap,Math.round(cfg.density*fm*T.perKm*area*q));
-    const rng=mulberry32((S.seed*13+ti*977)>>>0),cn=makeNoise(S.seed+ti*101+7);let placed=0;const tries=target*6,ou=rng(),ov=rng(),jit=1/Math.sqrt(Math.max(1,tries))*.8;
+  ECO_TYPES.forEach((t,ti)=>{
+    const cfg=S.scatter.types[t],T=SCATTER_TYPES[t],vars=VARIANTS[t]||[t],map=E[t];
+    if(!on||!cfg||!cfg.on||cfg.density<=0||!map){scatterCounts[t]=0;return}
+    /* how much of the map suits this type sets how many to place; each spot is accepted by its local suitability */
+    let mean=0;const smp=[];for(let k=0;k<map.length;k+=3){mean+=map[k];smp.push(map[k])}mean/=smp.length;smp.sort((a,b)=>a-b);const norm=Math.max(smp[Math.floor(smp.length*.97)]||0,.04);
+    const fm=t==='grass'||t==='boulder'||t==='flowers'?1:forest,cap=vars.reduce((a,v)=>a+SCAT[v].userData.max,0),target=Math.min(cap,Math.round(cfg.density*fm*T.perKm*area*q*clamp(mean/norm*1.5,0,1)));
+    const rng=mulberry32((S.seed*13+ti*977)>>>0);let placed=0;const tries=target*7,ou=rng(),ov=rng(),jit=1/Math.sqrt(Math.max(1,tries))*.9;
     for(let a=0;a<tries&&placed<target;a++){
-      const u=clamp(((ou+a*.7548776662)%1)+(rng()-.5)*jit,0,.9999),v=clamp(((ov+a*.5698402910)%1)+(rng()-.5)*jit,0,.9999),gx=u*(N-1),gy=v*(N-1),h=hAt(gx,gy);
-      const s=T.unit*cfg.size*(.68+rng()*.64),rr=Math.max(.7,s*.3/cell);let hmin=h;for(const [ox,oy] of [[rr,0],[-rr,0],[0,rr],[0,-rr]])hmin=Math.min(hmin,hAt(gx+ox,gy+oy));
-      if(hmin<sea+.6+(t==='grass'?0:s*.04))continue;
+      const u=clamp(((ou+a*.7548776662)%1)+(rng()-.5)*jit,0,.9999),v=clamp(((ov+a*.5698402910)%1)+(rng()-.5)*jit,0,.9999),gx=u*(N-1),gy=v*(N-1);
+      let p=clamp(ecoAt(map,u,v)/norm,0,1);if(rng()>p)continue;
+      const h=hAt(gx,gy),s0=T.unit*cfg.size*(.68+rng()*.64),rr=Math.max(.7,s0*.3/cell);let hmin=h;for(const [ox,oy] of [[rr,0],[-rr,0],[0,rr],[0,-rr]])hmin=Math.min(hmin,hAt(gx+ox,gy+oy));
+      if(hmin<sea+.5+(t==='grass'||t==='flowers'?0:s0*.03))continue;
       if(fd&&sampleField(FL.d,FL.R,u*(FL.R-1),v*(FL.R-1))>.04)continue;
-      const tn=(h-sea)/(hiT-sea);if(tn<cfg.lo||tn>cfg.hi)continue;
-      const sl=slopeDeg(gx,gy);if(sl>cfg.slope)continue;
-      const k=(gy|0)*N+(gx|0),wet=WM[k],m=M[k];if(wet>(t==='bush'?.85:t==='boulder'?.95:.5))continue;
-      let p=SM[k];
-      const cl=fbm(cn,u*7,v*7,3,.5)*.5+.5;p*=lerp(1,smooth(.42,.62,cl),cfg.cluster);
-      if(PW[k]>.25){const r=PC[k*3],g=PC[k*3+1];if(!(g>r*1.12))p*=1-smooth(.25,.6,PW[k])}
-      if(t==='conifer')p*=1-smooth(.4,.75,wet);
-      if(t==='broadleaf')p*=lerp(.45,1.3,m)*(1-smooth(.5,.8,wet));
-      if(t==='bush')p*=lerp(.6,1.2,m)+wet*.8;
-      if(t==='grass')p*=lerp(.4,1.2,m)*(1-smooth(.45,.8,wet));
-      if(t==='boulder')p*=.35+smooth(12,40,sl)*1.2;
-      if(t==='deadfall')p*=.35+DF[k]*3+(S.biome.palette==='tundra'||S.biome.palette==='autumn'?.25:0);else if(t!=='grass'&&t!=='boulder')p*=1-DF[k]*.85;
-      p*=1-smooth(.85,1,cfg.hi>0?tn/cfg.hi:0)*.6;
-      if(rng()>p)continue;
-      let vk=vars[0];if(vars.length>1){const r=rng();vk=t==='conifer'?(r<.3+tn*.45?'pine':'conifer'):t==='broadleaf'?(r<(S.biome.palette==='tundra'||S.biome.palette==='autumn'?.5:.28)?'birch':'broadleaf'):(r<.55?'log':'stump')}
+      const tn=(h-sea)/(hiT-sea);if(tn<cfg.lo||tn>cfg.hi)continue;const sl=slopeDeg(gx,gy);if(sl>cfg.slope)continue;
+      const k=(gy|0)*N+(gx|0);if(SM[k]<.05&&t!=='boulder')continue;
+      if(PW[k]>.25){const r=PC[k*3],g=PC[k*3+1];if(!(g>r*1.12)&&rng()<smooth(.25,.6,PW[k]))continue}
+      const Fl=ecoAt(E.F,u,v),hn=(h-sea)/rel,tree=t==='conifer'||t==='broadleaf';
+      let s=s0;if(tree)s*=lerp(.55,1.12,Fl)*(1-.55*smooth(tl-.12,tl,hn));if(t==='snag')s*=.7+rng()*.5;
+      let vk=vars[0];if(vars.length>1){const r=rng();vk=t==='conifer'?(r<.25+hn*.45?'pine':'conifer'):t==='broadleaf'?(r<(S.biome.palette==='tundra'||S.biome.palette==='autumn'?.45:.22)?'birch':'broadleaf'):(r<.72?'log':'stump')}
       const mesh=SCAT[vk];if(used[vk]>=mesh.userData.max)continue;
-      const x=(u-.5)*W,z=(v-.5)*W,sink=(t==='boulder'?.3:t==='deadfall'?.02:.06)+Math.tan(sl*Math.PI/180)*(t==='grass'||t==='deadfall'?.1:.22);
-      _e.set(t==='boulder'?rng()*6:(rng()-.5)*.1,rng()*6.283,t==='boulder'?rng()*6:(rng()-.5)*.1);_q.setFromEuler(_e);
-      _p.set(x,h*vex-s*sink,z);_s.set(s,s*(t==='boulder'?.7+rng()*.5:1),s);_m.compose(_p,_q,_s);mesh.setMatrixAt(used[vk],_m);if(!mesh.userData.off||mesh.userData.off.length<mesh.userData.max)mesh.userData.off=new Float32Array(mesh.userData.max);mesh.userData.off[used[vk]]=-s*sink;
-      const br=.82+rng()*.32,dry=t==='grass'||t==='bush'?(1-m)*.22:0;_c.setRGB(br*(1+dry),br*(1+dry*.5),br*(1-dry*.4));
-      if(S.biome.palette==='autumn'&&(vk==='broadleaf'||vk==='birch'||t==='bush')){const r=rng();_c.setRGB(br*(1.9+r*.6),br*(1.0+r*.3),br*.45)}
-      if(S.biome.palette==='tundra'&&t!=='boulder')_c.multiplyScalar(.85);
+      const x=(u-.5)*W,z=(v-.5)*W,flat=vk==='log'||t==='branches',sink=(t==='boulder'?.3:flat?0:.04)+Math.tan(sl*Math.PI/180)*(t==='grass'||t==='flowers'||t==='fern'?.08:flat?0:.18);
+      if(flat){/* lie on the slope */const dx=hAt(gx+1,gy)-hAt(gx-1,gy),dz=hAt(gx,gy+1)-hAt(gx,gy-1);_p.set(-dx*vex,2*cell,-dz*vex).normalize();_q.setFromUnitVectors(_s.set(0,1,0),_p);_e.set(0,rng()*6.283,0);_q.multiply(new THREE.Quaternion().setFromEuler(_e))}
+      else{_e.set(t==='boulder'?rng()*6:(rng()-.5)*.08,rng()*6.283,t==='boulder'?rng()*6:(rng()-.5)*.08);_q.setFromEuler(_e)}
+      _p.set(x,h*vex-s*sink+(flat?.12:0),z);_s.set(s,s*(t==='boulder'?.7+rng()*.5:1),s);_m.compose(_p,_q,_s);mesh.setMatrixAt(used[vk],_m);if(!mesh.userData.off||mesh.userData.off.length<mesh.userData.max)mesh.userData.off=new Float32Array(mesh.userData.max);mesh.userData.off[used[vk]]=-s*sink+(flat?.12:0);
+      vegCell(vk,used[vk],rng);
+      const br=.84+rng()*.3,m=M[k],dry=t==='grass'||t==='bush'||t==='flowers'?(1-m)*.22:0;_c.setRGB(br*(1+dry),br*(1+dry*.5),br*(1-dry*.4));
+      if(S.biome.palette==='autumn'&&(vk==='broadleaf'||vk==='birch'||t==='bush')){const r=rng();_c.setRGB(br*(1.7+r*.6),br*(1.0+r*.25),br*.5)}
+      if(S.biome.palette==='arid'&&(t==='grass'||t==='bush'))_c.setRGB(br*1.25,br*1.08,br*.7);
+      if(S.biome.palette==='tundra'&&t!=='boulder')_c.multiplyScalar(.88);if(vk==='birch')_c.setRGB(br*1.12,br*1.12,br*.92);
       mesh.setColorAt(used[vk],_c);used[vk]++;placed++;
     }
     scatterCounts[t]=placed;
   });
   for(const k of TREE_KEYS){const mesh=SCAT[k];mesh.count=used[k];mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true}
   ensureLOD();partitionLOD(true);
-  placeStructures(on);dirty=true;shadowDirty();
+  {const f=resample(ECO.F,ECO.E,N);blurField(f,N,Math.max(1,Math.round(N/96)));let diff=!FSH||FSH.length!==f.length?1:0;if(!diff)for(let k=0;k<f.length;k+=97)diff=Math.max(diff,Math.abs(f[k]-FSH[k]));FSH=on&&S.scatter.types.conifer.on?f:null;if(diff>.02)recolorSoon()}
+  placeStructures(on);loadVegTextures();vegSync();dirty=true;shadowDirty();
   if(typeof onScatterBuilt==='function')onScatterBuilt();
 }
+const ECO_TYPES=['conifer','broadleaf','bush','grass','boulder','deadfall','snag','fern','flowers','branches'];
 /* fast path after sculpting: move existing instances onto the new ground (and hide ones now under water) instead of re-placing everything */
 function scatterReseat(){if(!H||!SCAT.conifer)return;const W=S.shape.world,vex=S.view.vex,sea=seaLevel();
   for(const k of TREE_KEYS){const m=SCAT[k],off=m.userData.off;if(!m.count||!off)continue;const a=m.instanceMatrix.array;
     for(let i=0;i<m.count;i++){const o=i*16,x=a[o+12],z=a[o+14],gx=(x/W+.5)*(N-1),gy=(z/W+.5)*(N-1),h=hAt(gx,gy);a[o+13]=h<sea+.4&&k!=='grass'?-1e6:h*vex+off[i]}m.instanceMatrix.needsUpdate=true}
-  placeStructures(S.scatter.on);partitionLOD(true);shadowDirty();dirty=true}
+  placeStructures(S.scatter.on);vegSync();shadowDirty();dirty=true}
 function autoStructs(count){
   const rng=mulberry32((S.seed*31+5+(S.seed2||0)*977)>>>0),W=S.shape.world,sea=seaLevel(),cands=[];
   for(let a=0;a<900;a++){const u=.06+rng()*.88,v=.06+rng()*.88,gx=u*(N-1),gy=v*(N-1),h=hAt(gx,gy);if(h<sea+2)continue;const sl=slopeDeg(gx,gy);if(sl>9)continue;cands.push({u,v,sl:sl+rng()*4})}

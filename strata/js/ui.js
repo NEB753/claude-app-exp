@@ -275,7 +275,7 @@ function renderSheet(anim){
     h=`${acc('Coloring',sliderRow('biome.sea','Sea level',0,.6,.005,null,null,v=>fmtLen(v*S.shape.maxH))+sliderRow('biome.beach','Beach',0,.05,.001,null,null,v=>fmtLen(v*S.shape.maxH))+sliderRow('biome.snow','Snow line',.2,1,.01,null,null,v=>v>=1?'none':fmtLen(v*S.shape.maxH))+sliderRow('biome.rock','Rock slope',.2,1.4,.01,null,null,v=>Math.round(Math.acos(1-clamp(v*.42,0,1))*180/Math.PI)+'°')+sliderRow('biome.lush','Greenery',0,1,.01,null,null,pct))}
     <div style="height:4px"></div>${tg('scatter.on','Trees, rocks & buildings','Instanced 3D assets placed by rules')}
     ${sliderRow('scatter.forest','Forest density',0,2,.01,null,1,v=>Math.round(v*100)+'%')}
-    ${['conifer','broadleaf','bush','grass','boulder','deadfall'].map(typeAcc).join('')}
+    ${['conifer','broadleaf','snag','bush','fern','grass','flowers','boulder','deadfall','branches'].map(typeAcc).join('')}
     ${acc('Buildings & props',tg('scatter.types.structure.on','Show')+sliderRow('scatter.types.structure.count','Count',0,30,1,null,6)+sliderRow('scatter.types.structure.size','Size',.5,4,.05,null,1.6,v=>(+v).toFixed(2)+'×')+`<div class="btns"><button class="btn plain press" id="stReset">Auto-place again</button></div><p class="hint">${S.structs.length?S.structs.length+' placed by AI, a photo, or you. Auto-place again replaces them.':'Cabins, houses and towers settle on flat, dry ground. Long-press the map to place one yourself.'}</p>`,false,`<span data-count="structure">${scatterCounts.structure||0}</span>`)}
     <p class="tip" style="margin-top:10px">${TIPS.biome}</p>`;
   }else if(t==='town'){h=townPanelHTML()

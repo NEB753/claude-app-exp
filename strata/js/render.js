@@ -189,7 +189,7 @@ function buildGeometry(){
   geo.setAttribute('uv',new THREE.BufferAttribute(uv,2));geo.setIndex(new THREE.BufferAttribute(idx,1));
   terrain=new THREE.Mesh(geo,MATS[S.view.look]||MATS.natural);terrain.castShadow=terrain.receiveShadow=true;terrain.frustumCulled=false;scene.add(terrain);
 }
-let baseDirty=false;
+let baseDirty=false;let FSH=null;/* forest canopy shade on the ground, from the ecology growth map */
 /* brush dabs only mark the area; it is rebuilt once per frame (big win on 513² and 1025² grids) */
 const DR={on:false,i0:0,j0:0,i1:0,j1:0};
 function markRegion(i0,j0,i1,j1){if(!DR.on){DR.on=true;DR.i0=i0;DR.j0=j0;DR.i1=i1;DR.j1=j1}else{DR.i0=Math.min(DR.i0,i0);DR.j0=Math.min(DR.j0,j0);DR.i1=Math.max(DR.i1,i1);DR.j1=Math.max(DR.j1,j1)}dirty=true}
@@ -203,7 +203,7 @@ function updateRegion(i0,j0,i1,j1){
     const hl=H[j*N+(i>0?i-1:i)],hr=H[j*N+(i<N-1?i+1:i)],hu=H[(j>0?j-1:j)*N+i],hd=H[(j<N-1?j+1:j)*N+i];
     let nx=(hl-hr)*vex,ny=2*cell,nz=(hu-hd)*vex;const l=1/Math.hypot(nx,ny,nz);nx*=l;ny*=l;nz*=l;
     nor[k3]=nx;nor[k3+1]=ny;nor[k3+2]=nz;
-    if(colors){const ao=clamp(1+((h-(hl+hr+hu+hd)/4)/cell)*1.4,.66,1.12),c=colorAt(h,ny,M[k],ao,PC[k3],PC[k3+1],PC[k3+2],PW[k],WM[k]);
+    if(colors){const fsh=FSH&&FSH.length===N*N?FSH[k]:0;const ao=(1-.32*fsh)*clamp(1+((h-(hl+hr+hu+hd)/4)/cell)*1.4,.66,1.12),c=colorAt(h,ny,M[k],ao,PC[k3],PC[k3+1],PC[k3+2],PW[k],WM[k]);
       col[k3]=toLin(c[0]);col[k3+1]=toLin(c[1]);col[k3+2]=toLin(c[2]);const k4=k*4;spl[k4]=SPL[0];spl[k4+1]=SPL[1];spl[k4+2]=SPL[2];spl[k4+3]=SPL[3];if(S.view.mask&&MK[k]>.01){const t=MK[k]*.55;col[k3]=lerp(col[k3],.9,t);col[k3+1]=lerp(col[k3+1],.52,t);col[k3+2]=lerp(col[k3+2],.06,t)}}
   }
   for(const a of ['position','normal','color','splat']){const at=geo.attributes[a],c=at.itemSize;at.updateRange.offset=j0*N*c;at.updateRange.count=(j1-j0+1)*N*c;at.needsUpdate=true}

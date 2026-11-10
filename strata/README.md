@@ -154,3 +154,18 @@ A phone-first terrain studio with no build step. It uses Three.js r128 from cdnj
   - Labels for icon buttons (hover or long-press).
   - **Simple mode** hides advanced options.
   - Calmer chrome.
+
+**V1.7**
+- **Realistic vegetation**:
+  - Trees, shrubs, ferns, grass and wildflowers are billboards baked from CC0 Poly Haven scans. Species: fir, pine, two broadleaf, a shrub, a dead snag.
+  - The baked sprites carry colour and normal maps, are lit by the real sun with soft light through the leaves, and cast shadows. They turn to face you and tilt with the view so they keep their shape from above.
+  - 1K atlases on Minimum–Balanced, 2K on Pro/Ultra; the simple models remain as the fallback.
+- **Rocks and debris**: boulders are real meshes textured with a scanned boulder (triplanar, moss on top). Fallen logs and branch clusters lie flat on the slope as decals.
+- **Ecology-based placement** (`js/ecology.js`, in the spirit of Gaea / World Creator ecosystem masks):
+  - **Site factors**: altitude against a treeline set from the snow line, slope, water flow, nearness to water, hollows vs. ridges, and sunny vs. shaded slopes.
+  - **Species ranges**: conifers up to the treeline; broadleaf low, gentle and moist; shrubs on edges and rocky slopes; grass and wildflowers in open meadows; ferns on moist forest floor; snags near the treeline; boulders below cliffs, on high ground and in streambeds.
+  - **Growth**: a simulation seeds and spreads forests over decades, giving connected stands with clearings and soft edges. Logs and branches gather under old stands and along edges. Canopy shade darkens the forest floor.
+  - **Biomes**: each palette has its own mix (deserts are almost treeless, tundra is sparse and rocky, autumn is broadleaf-heavy).
+  - **Plant tool and photos**: the Plant brush and photo vegetation now raise the chance that forest establishes and spreads, instead of dropping single trees.
+  - Measured on five presets: under 6% of trees on slopes steeper than 35°, none above the treeline, none in water.
+- New biome groups: dead standing trees, ferns & undergrowth, wildflowers, branches & debris.
