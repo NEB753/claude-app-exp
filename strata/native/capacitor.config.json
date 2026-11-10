@@ -1,0 +1,7 @@
+{
+  "appId": "com.example.terraingen",
+  "appName": "Terrain Gen",
+  "webDir": "www",
+  "ios": { "contentInset": "never", "backgroundColor": "#0f3826" },
+  "android": { "backgroundColor": "#0f3826" }
+}
